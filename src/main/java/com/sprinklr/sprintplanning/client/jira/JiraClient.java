@@ -1,9 +1,11 @@
 package com.sprinklr.sprintplanning.client.jira;
 
 import com.sprinklr.sprintplanning.common.model.BacklogPage;
+import com.sprinklr.sprintplanning.common.model.IssueSearchPage;
 import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.common.model.JiraFieldConfig;
 import com.sprinklr.sprintplanning.common.model.SprintView;
+import com.sprinklr.sprintplanning.search.dto.TicketViewDto;
 
 import java.util.List;
 
@@ -22,4 +24,8 @@ public interface JiraClient {
   void moveIssuesToSprint(List<String> issueKeys, Long sprintId);
 
   void moveIssuesToBacklog(List<String> issueKeys);
+
+  IssueSearchPage searchIssues(String jql, JiraFieldConfig fieldConfig, int startAt, int maxResults);
+
+  List<TicketViewDto> getIssuesByKeys(List<String> issueKeys, JiraFieldConfig fieldConfig);
 }

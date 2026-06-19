@@ -3,6 +3,7 @@ package com.sprinklr.sprintplanning.client.jira;
 import com.sprinklr.sprintplanning.client.jira.dto.JiraIssueDto;
 import com.sprinklr.sprintplanning.client.jira.dto.JiraIssueMoveRequest;
 import com.sprinklr.sprintplanning.client.jira.dto.JiraPagedResponse;
+import com.sprinklr.sprintplanning.client.jira.dto.JiraSearchRequest;
 import com.sprinklr.sprintplanning.client.jira.dto.JiraSprintDto;
 import com.sprinklr.sprintplanning.common.exception.JiraClientException;
 import com.sprinklr.sprintplanning.common.exception.JiraRetryableException;
@@ -28,6 +29,8 @@ public class JiraRestClient {
 
   private static final int PAGE_SIZE = 50;
   private static final String FIELDS_PARAM = "summary,issuetype,status,statusCategory";
+  private static final String SEARCH_FIELDS_PARAM =
+      "summary,issuetype,status,statusCategory,assignee,priority,fixVersions,labels,components";
 
   private final RestClient restClient;
   private final RetryTemplate retryTemplate;
@@ -127,6 +130,68 @@ public class JiraRestClient {
     });
   }
 
+  public JiraPagedResponse<JiraIssueDto> searchIssues(
+      String jql, List<String> extraFields, int startAt, int maxResults) {
+    return retry(() -> restClient.post()
+        .uri("/rest/api/3/search")
+        .body(new JiraSearchRequest(jql, startAt, maxResults, buildSearchFieldsList(extraFields)))
+        .retrieve()
+        .onStatus(this::isRetryable, this::throwRetryable)
+        .onStatus(HttpStatusCode::is4xxClientError, (request, clientResponse) -> {
+          throw JiraClientException.badRequest("Jira issue search failed");
+        })
+        .body(new ParameterizedTypeReference<JiraPagedResponse<JiraIssueDto>>() {}));
+  }
+
+  public List<JiraIssueDto> getIssuesByKeys(List<String> issueKeys, List<String> extraFields) {
+    if (issueKeys == null || issueKeys.isEmpty()) {
+      return List.of();
+    }
+    String jql = buildIssueKeysJql(issueKeys);
+    return fetchAllSearchResults(jql, extraFields);
+  }
+
+  private List<JiraIssueDto> fetchAllSearchResults(String jql, List<String> extraFields) {
+    List<JiraIssueDto> allIssues = new ArrayList<>();
+    int startAt = 0;
+    boolean hasMore = true;
+
+    while (hasMore) {
+      final int pageStart = startAt;
+      JiraPagedResponse<JiraIssueDto> page = retry(() -> restClient.post()
+          .uri("/rest/api/3/search")
+          .body(new JiraSearchRequest(jql, pageStart, PAGE_SIZE, buildSearchFieldsList(extraFields)))
+          .retrieve()
+          .onStatus(this::isRetryable, this::throwRetryable)
+          .onStatus(HttpStatusCode::is4xxClientError, (request, clientResponse) -> {
+            throw JiraClientException.badRequest("Jira issue search failed");
+          })
+          .body(new ParameterizedTypeReference<JiraPagedResponse<JiraIssueDto>>() {}));
+
+      if (page == null || page.getIssues().isEmpty()) {
+        break;
+      }
+      allIssues.addAll(page.getIssues());
+      startAt += page.getIssues().size();
+      hasMore = !page.isLast() && startAt < page.getTotal();
+    }
+
+    return allIssues;
+  }
+
+  private String buildIssueKeysJql(List<String> issueKeys) {
+    String keysClause = issueKeys.stream()
+        .map(this::escapeJqlString)
+        .map(key -> "\"" + key + "\"")
+        .reduce((left, right) -> left + "," + right)
+        .orElse("");
+    return "key in (" + keysClause + ")";
+  }
+
+  private String escapeJqlString(String value) {
+    return value.replace("\\", "\\\\").replace("\"", "\\\"");
+  }
+
   private List<JiraIssueDto> fetchAllIssues(Function<UriBuilder, URI> uriFunction) {
     List<JiraIssueDto> allIssues = new ArrayList<>();
     int startAt = 0;
@@ -166,6 +231,21 @@ public class JiraRestClient {
       return FIELDS_PARAM;
     }
     return FIELDS_PARAM + "," + String.join(",", extraFields);
+  }
+
+  private List<String> buildSearchFieldsList(List<String> extraFields) {
+    List<String> fields = new ArrayList<>();
+    for (String field : SEARCH_FIELDS_PARAM.split(",")) {
+      fields.add(field);
+    }
+    if (extraFields != null) {
+      for (String extraField : extraFields) {
+        if (extraField != null && !extraField.isBlank() && !fields.contains(extraField)) {
+          fields.add(extraField);
+        }
+      }
+    }
+    return fields;
   }
 
   private boolean isRetryable(HttpStatusCode status) {

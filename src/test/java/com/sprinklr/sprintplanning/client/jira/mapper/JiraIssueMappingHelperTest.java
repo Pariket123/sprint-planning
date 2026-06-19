@@ -76,6 +76,71 @@ class JiraIssueMappingHelperTest {
     assertThat(helper.resolveStatusCategory(issue)).isEqualTo(StatusCategory.TODO);
   }
 
+  @Test
+  void resolvesSearchViewFields() throws Exception {
+    JiraIssueDto issue = readIssue("""
+        {
+          "key": "WFM-3",
+          "fields": {
+            "summary": "Searchable issue",
+            "issuetype": { "name": "Bug" },
+            "status": {
+              "name": "Done",
+              "statusCategory": { "key": "done" }
+            },
+            "assignee": {
+              "accountId": "user-1",
+              "displayName": "Jane Doe"
+            },
+            "priority": { "name": "High" },
+            "fixVersions": [{ "name": "Q3 2026" }, { "name": "Release-12.4" }],
+            "labels": ["backend", "urgent"],
+            "components": [{ "name": "API" }],
+            "customfield_10010": [
+              { "id": 37, "name": "Sprint 12", "state": "closed" },
+              { "id": 42, "name": "Sprint 13", "state": "active" }
+            ],
+            "customfield_10016": 3,
+            "customfield_10020": { "value": "QA" }
+          }
+        }
+        """);
+
+    assertThat(helper.resolveAssigneeId(issue)).isEqualTo("user-1");
+    assertThat(helper.resolveAssigneeDisplayName(issue)).isEqualTo("Jane Doe");
+    assertThat(helper.resolvePriority(issue)).isEqualTo("High");
+    assertThat(helper.resolveFixVersions(issue)).containsExactly("Q3 2026", "Release-12.4");
+    assertThat(helper.resolveSprintIds(issue)).containsExactly(37L, 42L);
+    assertThat(helper.resolveLabels(issue)).containsExactly("backend", "urgent");
+    assertThat(helper.resolveComponents(issue)).containsExactly("API");
+    assertThat(helper.resolveDomain(issue, fieldConfig)).isEqualTo(Domain.QA);
+  }
+
+  @Test
+  void resolvesEmptySearchFieldsWhenMissing() throws Exception {
+    JiraIssueDto issue = readIssue("""
+        {
+          "key": "WFM-4",
+          "fields": {
+            "summary": "Minimal",
+            "issuetype": { "name": "Task" },
+            "status": {
+              "name": "To Do",
+              "statusCategory": { "key": "new" }
+            }
+          }
+        }
+        """);
+
+    assertThat(helper.resolveAssigneeId(issue)).isNull();
+    assertThat(helper.resolveAssigneeDisplayName(issue)).isNull();
+    assertThat(helper.resolvePriority(issue)).isNull();
+    assertThat(helper.resolveFixVersions(issue)).isEmpty();
+    assertThat(helper.resolveSprintIds(issue)).isEmpty();
+    assertThat(helper.resolveLabels(issue)).isEmpty();
+    assertThat(helper.resolveComponents(issue)).isEmpty();
+  }
+
   private JiraIssueDto readIssue(String json) throws Exception {
     return objectMapper.readValue(json, JiraIssueDto.class);
   }
