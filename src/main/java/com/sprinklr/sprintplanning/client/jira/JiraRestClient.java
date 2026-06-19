@@ -1,9 +1,12 @@
 package com.sprinklr.sprintplanning.client.jira;
 
+import com.sprinklr.sprintplanning.client.jira.dto.JiraApproximateCountRequest;
+import com.sprinklr.sprintplanning.client.jira.dto.JiraApproximateCountResponse;
 import com.sprinklr.sprintplanning.client.jira.dto.JiraIssueDto;
 import com.sprinklr.sprintplanning.client.jira.dto.JiraIssueMoveRequest;
 import com.sprinklr.sprintplanning.client.jira.dto.JiraPagedResponse;
-import com.sprinklr.sprintplanning.client.jira.dto.JiraSearchRequest;
+import com.sprinklr.sprintplanning.client.jira.dto.JiraSearchJqlRequest;
+import com.sprinklr.sprintplanning.client.jira.dto.JiraSearchJqlResponse;
 import com.sprinklr.sprintplanning.client.jira.dto.JiraSprintDto;
 import com.sprinklr.sprintplanning.common.exception.JiraClientException;
 import com.sprinklr.sprintplanning.common.exception.JiraRetryableException;
@@ -132,15 +135,71 @@ public class JiraRestClient {
 
   public JiraPagedResponse<JiraIssueDto> searchIssues(
       String jql, List<String> extraFields, int startAt, int maxResults) {
-    return retry(() -> restClient.post()
-        .uri("/rest/api/3/search")
-        .body(new JiraSearchRequest(jql, startAt, maxResults, buildSearchFieldsList(extraFields)))
-        .retrieve()
-        .onStatus(this::isRetryable, this::throwRetryable)
-        .onStatus(HttpStatusCode::is4xxClientError, (request, clientResponse) -> {
-          throw JiraClientException.badRequest("Jira issue search failed");
-        })
-        .body(new ParameterizedTypeReference<JiraPagedResponse<JiraIssueDto>>() {}));
+    List<String> fields = buildSearchFieldsList(extraFields);
+    // #region agent log
+    try (var fw = new java.io.FileWriter("/Users/pariket.pariket/project/.cursor/debug-0d262b.log", true)) {
+      fw.write("{\"sessionId\":\"0d262b\",\"runId\":\"post-fix\",\"hypothesisId\":\"A\",\"location\":\"JiraRestClient:searchIssues:request\",\"message\":\"jira search request\",\"data\":{\"endpoint\":\"/rest/api/3/search/jql\",\"jql\":\""
+          + jql.replace("\\", "\\\\").replace("\"", "\\\"") + "\",\"fieldCount\":" + fields.size()
+          + ",\"startAt\":" + startAt + ",\"maxResults\":" + maxResults + "},\"timestamp\":"
+          + System.currentTimeMillis() + "}\n");
+    } catch (Exception ignored) {}
+    // #endregion
+
+    int remainingSkip = startAt;
+    String nextPageToken = null;
+    List<JiraIssueDto> collected = new ArrayList<>();
+    boolean moreAvailable = false;
+    boolean exhausted = false;
+
+    while (collected.size() < maxResults && !exhausted) {
+      int pageSize = remainingSkip > 0 ? PAGE_SIZE : maxResults - collected.size();
+      JiraSearchJqlResponse page = executeJqlSearch(jql, fields, pageSize, nextPageToken);
+      List<JiraIssueDto> issues = page != null && page.getIssues() != null ? page.getIssues() : List.of();
+      if (issues.isEmpty()) {
+        exhausted = true;
+        break;
+      }
+
+      int index = 0;
+      while (index < issues.size() && remainingSkip > 0) {
+        index++;
+        remainingSkip--;
+      }
+      while (index < issues.size() && collected.size() < maxResults) {
+        collected.add(issues.get(index++));
+      }
+
+      if (collected.size() >= maxResults) {
+        moreAvailable = index < issues.size() || (page != null && !page.isLast());
+        break;
+      }
+
+      if (page == null || page.isLast()) {
+        exhausted = true;
+      } else {
+        nextPageToken = page.getNextPageToken();
+        if (nextPageToken == null || nextPageToken.isBlank()) {
+          exhausted = true;
+        }
+      }
+    }
+
+    JiraPagedResponse<JiraIssueDto> response = new JiraPagedResponse<>();
+    response.setStartAt(startAt);
+    response.setMaxResults(maxResults);
+    response.setTotal(getApproximateCount(jql));
+    response.setLast(exhausted || !moreAvailable);
+    response.setIssues(collected);
+
+    // #region agent log
+    try (var fw = new java.io.FileWriter("/Users/pariket.pariket/project/.cursor/debug-0d262b.log", true)) {
+      fw.write("{\"sessionId\":\"0d262b\",\"runId\":\"post-fix\",\"hypothesisId\":\"A\",\"location\":\"JiraRestClient:searchIssues:success\",\"message\":\"jira search success\",\"data\":{\"issueCount\":"
+          + collected.size() + ",\"total\":" + response.getTotal() + ",\"isLast\":" + response.isLast()
+          + "},\"timestamp\":" + System.currentTimeMillis() + "}\n");
+    } catch (Exception ignored) {}
+    // #endregion
+
+    return response;
   }
 
   public List<JiraIssueDto> getIssuesByKeys(List<String> issueKeys, List<String> extraFields) {
@@ -152,31 +211,69 @@ public class JiraRestClient {
   }
 
   private List<JiraIssueDto> fetchAllSearchResults(String jql, List<String> extraFields) {
+    List<String> fields = buildSearchFieldsList(extraFields);
     List<JiraIssueDto> allIssues = new ArrayList<>();
-    int startAt = 0;
-    boolean hasMore = true;
+    String nextPageToken = null;
 
-    while (hasMore) {
-      final int pageStart = startAt;
-      JiraPagedResponse<JiraIssueDto> page = retry(() -> restClient.post()
-          .uri("/rest/api/3/search")
-          .body(new JiraSearchRequest(jql, pageStart, PAGE_SIZE, buildSearchFieldsList(extraFields)))
-          .retrieve()
-          .onStatus(this::isRetryable, this::throwRetryable)
-          .onStatus(HttpStatusCode::is4xxClientError, (request, clientResponse) -> {
-            throw JiraClientException.badRequest("Jira issue search failed");
-          })
-          .body(new ParameterizedTypeReference<JiraPagedResponse<JiraIssueDto>>() {}));
-
-      if (page == null || page.getIssues().isEmpty()) {
+    while (true) {
+      JiraSearchJqlResponse page = executeJqlSearch(jql, fields, PAGE_SIZE, nextPageToken);
+      if (page == null || page.getIssues() == null || page.getIssues().isEmpty()) {
         break;
       }
       allIssues.addAll(page.getIssues());
-      startAt += page.getIssues().size();
-      hasMore = !page.isLast() && startAt < page.getTotal();
+      if (page.isLast()) {
+        break;
+      }
+      nextPageToken = page.getNextPageToken();
+      if (nextPageToken == null || nextPageToken.isBlank()) {
+        break;
+      }
     }
 
     return allIssues;
+  }
+
+  private JiraSearchJqlResponse executeJqlSearch(
+      String jql, List<String> fields, int maxResults, String nextPageToken) {
+    return retry(() -> restClient.post()
+        .uri("/rest/api/3/search/jql")
+        .body(new JiraSearchJqlRequest(jql, maxResults, fields, nextPageToken))
+        .retrieve()
+        .onStatus(this::isRetryable, this::throwRetryable)
+        .onStatus(HttpStatusCode::is4xxClientError, (request, clientResponse) -> {
+          // #region agent log
+          String errorBody = "";
+          int statusCode = clientResponse.getStatusCode().value();
+          try {
+            errorBody = new String(clientResponse.getBody().readAllBytes());
+          } catch (Exception ignored) {}
+          try (var fw = new java.io.FileWriter("/Users/pariket.pariket/project/.cursor/debug-0d262b.log", true)) {
+            fw.write("{\"sessionId\":\"0d262b\",\"runId\":\"post-fix\",\"hypothesisId\":\"A,B,C,D\",\"location\":\"JiraRestClient:executeJqlSearch:4xx\",\"message\":\"jira search error\",\"data\":{\"status\":"
+                + statusCode + ",\"body\":\""
+                + errorBody.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ") + "\"},\"timestamp\":"
+                + System.currentTimeMillis() + "}\n");
+          } catch (Exception ignored) {}
+          // #endregion
+          throw JiraClientException.badRequest("Jira issue search failed");
+        })
+        .body(JiraSearchJqlResponse.class));
+  }
+
+  private int getApproximateCount(String jql) {
+    try {
+      JiraApproximateCountResponse response = retry(() -> restClient.post()
+          .uri("/rest/api/3/search/approximate-count")
+          .body(new JiraApproximateCountRequest(jql))
+          .retrieve()
+          .onStatus(this::isRetryable, this::throwRetryable)
+          .onStatus(HttpStatusCode::is4xxClientError, (request, clientResponse) -> {
+            throw JiraClientException.badRequest("Jira approximate count failed");
+          })
+          .body(JiraApproximateCountResponse.class));
+      return response != null ? response.getCount() : 0;
+    } catch (JiraClientException ex) {
+      return 0;
+    }
   }
 
   private String buildIssueKeysJql(List<String> issueKeys) {
