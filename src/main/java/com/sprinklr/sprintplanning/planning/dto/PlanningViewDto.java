@@ -20,6 +20,9 @@ public record PlanningViewDto(
     Map<String, Double> rolloverStoryPoints,
     Map<String, Double> resolvedRollover,
     List<IssueView> sprintIssues,
-    List<IssueView> selectedIssues
+    List<IssueView> selectedIssues,
+    List<String> plannedIssueKeys,
+    List<String> committedIssueKeys,
+    List<RolloverIssueDto> rolloverIssues
 ) {
 }

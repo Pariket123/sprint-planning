@@ -7,6 +7,10 @@ import java.util.List;
 
 @Schema(description = "Bulk issue move request")
 public record IssueMoveRequest(
-    @NotEmpty List<String> issueKeys
+    @NotEmpty List<String> issueKeys,
+    Boolean addToPlannedScope
 ) {
+  public boolean shouldAddToPlannedScope() {
+    return addToPlannedScope != null && addToPlannedScope;
+  }
 }

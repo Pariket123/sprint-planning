@@ -4,6 +4,7 @@ import com.sprinklr.sprintplanning.TestSecurityConfig;
 import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.model.SprintView;
 import com.sprinklr.sprintplanning.planning.dto.DomainPlanningMetricsDto;
+import com.sprinklr.sprintplanning.planning.dto.PlannedScopeDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningDataDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningSummaryDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningValidationResultDto;
@@ -57,6 +58,9 @@ class PlanningControllerTest {
         List.of(),
         Map.of(),
         Map.of("DEV", 2.0),
+        List.of(),
+        List.of(),
+        List.of(),
         List.of(),
         List.of());
     when(planningService.getPlanningView("pod-1", 10L)).thenReturn(view);
@@ -131,5 +135,30 @@ class PlanningControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.riskLevel").value("LOW"));
+  }
+
+  @Test
+  void updatePlannedScopeReturnsEnvelope() throws Exception {
+    when(planningService.updatePlannedScope(eq("pod-1"), eq(10L), any()))
+        .thenReturn(new PlannedScopeDto(List.of("CARE-1", "CARE-2"), Instant.now()));
+
+    mockMvc.perform(put("/api/v1/pods/pod-1/sprints/10/planning/planned-scope")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                { "plannedIssueKeys": ["CARE-1", "CARE-2"] }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.plannedIssueKeys[0]").value("CARE-1"));
+  }
+
+  @Test
+  void getPlannedIssuesReturnsEnvelope() throws Exception {
+    when(planningService.getPlannedIssues("pod-1", 10L)).thenReturn(List.of());
+
+    mockMvc.perform(get("/api/v1/pods/pod-1/sprints/10/planning/planned-issues"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data").isArray());
   }
 }

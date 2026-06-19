@@ -3,6 +3,9 @@ package com.sprinklr.sprintplanning.planning.service;
 import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.planning.dto.BacklogPageDto;
+import com.sprinklr.sprintplanning.planning.dto.IssueMoveRequest;
+import com.sprinklr.sprintplanning.planning.dto.PlannedIssueViewDto;
+import com.sprinklr.sprintplanning.planning.dto.PlannedScopeDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningSummaryDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningValidationResultDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningViewDto;
@@ -37,9 +40,15 @@ public interface PlanningService {
 
   PlanningViewDto getPlanningView(String podId, Long jiraSprintId);
 
+  PlannedScopeDto getPlannedScope(String podId, Long jiraSprintId);
+
+  PlannedScopeDto updatePlannedScope(String podId, Long jiraSprintId, List<String> plannedIssueKeys);
+
+  List<PlannedIssueViewDto> getPlannedIssues(String podId, Long jiraSprintId);
+
   BacklogPageDto getBacklog(String podId, int startAt, int maxResults);
 
-  PlanningViewDto moveIssuesToSprint(String podId, Long jiraSprintId, List<String> issueKeys);
+  PlanningViewDto moveIssuesToSprint(String podId, Long jiraSprintId, IssueMoveRequest request);
 
   BacklogPageDto moveIssuesToBacklog(String podId, int startAt, int maxResults, List<String> issueKeys);
 }

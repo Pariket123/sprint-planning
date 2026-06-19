@@ -1,14 +1,19 @@
 package com.sprinklr.sprintplanning.planning.service;
 
+import com.sprinklr.sprintplanning.client.jira.JiraClient;
 import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.exception.ApiException;
 import com.sprinklr.sprintplanning.common.model.BacklogPage;
 import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.common.model.JiraFieldConfig;
 import com.sprinklr.sprintplanning.common.model.SprintView;
+import com.sprinklr.sprintplanning.common.util.StringListNormalizer;
 import com.sprinklr.sprintplanning.planning.calculator.PlanningCalculationInput;
 import com.sprinklr.sprintplanning.planning.calculator.PlanningCalculator;
 import com.sprinklr.sprintplanning.planning.dto.BacklogPageDto;
+import com.sprinklr.sprintplanning.planning.dto.IssueMoveRequest;
+import com.sprinklr.sprintplanning.planning.dto.PlannedIssueViewDto;
+import com.sprinklr.sprintplanning.planning.dto.PlannedScopeDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningSummaryDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningValidationResultDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningViewDto;
@@ -19,7 +24,7 @@ import com.sprinklr.sprintplanning.planning.model.OverrideAction;
 import com.sprinklr.sprintplanning.planning.model.PlanningOverride;
 import com.sprinklr.sprintplanning.planning.model.SprintPlanningDocument;
 import com.sprinklr.sprintplanning.planning.repository.SprintPlanningRepository;
-import com.sprinklr.sprintplanning.client.jira.JiraClient;
+import com.sprinklr.sprintplanning.search.dto.TicketViewDto;
 import com.sprinklr.sprintplanning.team.mapper.JiraConfigMapper;
 import com.sprinklr.sprintplanning.team.model.PodDocument;
 import com.sprinklr.sprintplanning.team.service.TeamService;
@@ -31,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,6 +51,7 @@ public class PlanningServiceImpl implements PlanningService {
   private final SprintPlanningRepository sprintPlanningRepository;
   private final PlanningCalculator planningCalculator;
   private final PlanningMapper planningMapper;
+  private final RolloverService rolloverService;
 
   public PlanningServiceImpl(
       TeamService teamService,
@@ -52,13 +59,15 @@ public class PlanningServiceImpl implements PlanningService {
       JiraConfigMapper jiraConfigMapper,
       SprintPlanningRepository sprintPlanningRepository,
       PlanningCalculator planningCalculator,
-      PlanningMapper planningMapper) {
+      PlanningMapper planningMapper,
+      RolloverService rolloverService) {
     this.teamService = teamService;
     this.jiraClient = jiraClient;
     this.jiraConfigMapper = jiraConfigMapper;
     this.sprintPlanningRepository = sprintPlanningRepository;
     this.planningCalculator = planningCalculator;
     this.planningMapper = planningMapper;
+    this.rolloverService = rolloverService;
   }
 
   @Override
@@ -208,7 +217,50 @@ public class PlanningServiceImpl implements PlanningService {
         planning.getRolloverStoryPoints(),
         planningMapper.toResolvedRolloverMap(resolvedRollover),
         sprintIssues,
-        selectedIssues);
+        selectedIssues,
+        List.copyOf(planning.getPlannedIssueKeys()),
+        List.copyOf(planning.getCommittedIssueKeys()),
+        rolloverService.getRolloverRecords(podId, jiraSprintId));
+  }
+
+  @Override
+  public PlannedScopeDto getPlannedScope(String podId, Long jiraSprintId) {
+    SprintPlanningDocument planning = getOrCreatePlanning(podId, jiraSprintId);
+    return toPlannedScopeDto(planning);
+  }
+
+  @Override
+  public PlannedScopeDto updatePlannedScope(String podId, Long jiraSprintId, List<String> plannedIssueKeys) {
+    teamService.getActivePodDocument(podId);
+    SprintPlanningDocument planning = getOrCreatePlanning(podId, jiraSprintId);
+    planning.setPlannedIssueKeys(StringListNormalizer.normalize(plannedIssueKeys));
+    planning.setPlannedScopeCapturedAt(Instant.now());
+    return toPlannedScopeDto(save(planning));
+  }
+
+  @Override
+  public List<PlannedIssueViewDto> getPlannedIssues(String podId, Long jiraSprintId) {
+    PodDocument pod = teamService.getActivePodDocument(podId);
+    JiraFieldConfig fieldConfig = jiraConfigMapper.toJiraFieldConfig(pod.getJiraConfig());
+    SprintPlanningDocument planning = getOrCreatePlanning(podId, jiraSprintId);
+
+    List<String> plannedKeys = planning.getPlannedIssueKeys();
+    if (plannedKeys.isEmpty()) {
+      return List.of();
+    }
+
+    List<TicketViewDto> tickets = jiraClient.getIssuesByKeys(plannedKeys, fieldConfig);
+    Map<String, TicketViewDto> ticketsByKey = tickets.stream()
+        .collect(Collectors.toMap(TicketViewDto::key, ticket -> ticket, (left, right) -> left, LinkedHashMap::new));
+
+    List<PlannedIssueViewDto> plannedIssues = new ArrayList<>();
+    for (String issueKey : plannedKeys) {
+      TicketViewDto ticket = ticketsByKey.get(issueKey);
+      if (ticket != null) {
+        plannedIssues.add(toPlannedIssueView(ticket, jiraSprintId));
+      }
+    }
+    return plannedIssues;
   }
 
   @Override
@@ -220,9 +272,21 @@ public class PlanningServiceImpl implements PlanningService {
   }
 
   @Override
-  public PlanningViewDto moveIssuesToSprint(String podId, Long jiraSprintId, List<String> issueKeys) {
+  public PlanningViewDto moveIssuesToSprint(String podId, Long jiraSprintId, IssueMoveRequest request) {
     teamService.getActivePodDocument(podId);
+    List<String> issueKeys = StringListNormalizer.normalize(request.issueKeys());
+
     jiraClient.moveIssuesToSprint(issueKeys, jiraSprintId);
+
+    SprintPlanningDocument planning = getOrCreatePlanning(podId, jiraSprintId);
+    planning.setCommittedIssueKeys(mergeIssueKeys(planning.getCommittedIssueKeys(), issueKeys));
+    planning.setCommittedAt(Instant.now());
+    if (request.shouldAddToPlannedScope()) {
+      planning.setPlannedIssueKeys(mergeIssueKeys(planning.getPlannedIssueKeys(), issueKeys));
+      planning.setPlannedScopeCapturedAt(Instant.now());
+    }
+    save(planning);
+
     return getPlanningView(podId, jiraSprintId);
   }
 
@@ -232,6 +296,45 @@ public class PlanningServiceImpl implements PlanningService {
     teamService.getActivePodDocument(podId);
     jiraClient.moveIssuesToBacklog(issueKeys);
     return getBacklog(podId, startAt, maxResults);
+  }
+
+  private PlannedScopeDto toPlannedScopeDto(SprintPlanningDocument planning) {
+    return new PlannedScopeDto(
+        List.copyOf(planning.getPlannedIssueKeys()),
+        planning.getPlannedScopeCapturedAt());
+  }
+
+  private PlannedIssueViewDto toPlannedIssueView(TicketViewDto ticket, Long plannedSprintId) {
+    Long currentSprintId = resolveCurrentSprintId(ticket.sprintIds());
+    boolean rolledOver = currentSprintId == null || !currentSprintId.equals(plannedSprintId);
+
+    return new PlannedIssueViewDto(
+        ticket.key(),
+        ticket.summary(),
+        ticket.issueType(),
+        ticket.status(),
+        ticket.statusCategory(),
+        ticket.storyPoints(),
+        ticket.domain(),
+        plannedSprintId,
+        currentSprintId,
+        rolledOver);
+  }
+
+  private Long resolveCurrentSprintId(List<Long> sprintIds) {
+    if (sprintIds == null || sprintIds.isEmpty()) {
+      return null;
+    }
+    return sprintIds.get(sprintIds.size() - 1);
+  }
+
+  private List<String> mergeIssueKeys(List<String> existingKeys, List<String> newKeys) {
+    LinkedHashSet<String> merged = new LinkedHashSet<>();
+    if (existingKeys != null) {
+      merged.addAll(existingKeys);
+    }
+    merged.addAll(newKeys);
+    return new ArrayList<>(merged);
   }
 
   private BacklogPageDto toBacklogPageDto(BacklogPage page) {

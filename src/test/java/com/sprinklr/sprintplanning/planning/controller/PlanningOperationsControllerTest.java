@@ -3,6 +3,7 @@ package com.sprinklr.sprintplanning.planning.controller;
 import com.sprinklr.sprintplanning.TestSecurityConfig;
 import com.sprinklr.sprintplanning.common.model.SprintView;
 import com.sprinklr.sprintplanning.planning.dto.BacklogPageDto;
+import com.sprinklr.sprintplanning.planning.dto.IssueMoveRequest;
 import com.sprinklr.sprintplanning.planning.dto.PlanningViewDto;
 import com.sprinklr.sprintplanning.planning.service.PlanningService;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -57,8 +59,11 @@ class PlanningOperationsControllerTest {
         Map.of(),
         Map.of(),
         List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
         List.of());
-    when(planningService.moveIssuesToSprint(eq("pod-1"), eq(10L), eq(List.of("WFM-1", "WFM-2"))))
+    when(planningService.moveIssuesToSprint(eq("pod-1"), eq(10L), any(IssueMoveRequest.class)))
         .thenReturn(view);
 
     mockMvc.perform(post("/api/v1/pods/pod-1/sprints/10/issues/move")
@@ -70,7 +75,7 @@ class PlanningOperationsControllerTest {
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.jiraSprintId").value(10));
 
-    verify(planningService).moveIssuesToSprint("pod-1", 10L, List.of("WFM-1", "WFM-2"));
+    verify(planningService).moveIssuesToSprint(eq("pod-1"), eq(10L), any(IssueMoveRequest.class));
   }
 
   @Test

@@ -55,6 +55,6 @@ public class PlanningOperationsController {
       @PathVariable Long jiraSprintId,
       @Valid @RequestBody IssueMoveRequest request) {
     return ResponseEntity.ok(ApiResponse.ok(
-        planningService.moveIssuesToSprint(podId, jiraSprintId, request.issueKeys())));
+        planningService.moveIssuesToSprint(podId, jiraSprintId, request)));
   }
 }

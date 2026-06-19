@@ -29,6 +29,16 @@ public class SprintPlanningDocument {
 
   private Map<String, Double> rolloverStoryPoints = new HashMap<>();
 
+  private List<String> plannedIssueKeys = new ArrayList<>();
+
+  private Instant plannedScopeCapturedAt;
+
+  private List<String> committedIssueKeys = new ArrayList<>();
+
+  private Instant committedAt;
+
+  private List<RolloverIssue> rolloverIssues = new ArrayList<>();
+
   private Instant createdAt;
 
   private Instant updatedAt;
@@ -87,6 +97,46 @@ public class SprintPlanningDocument {
 
   public void setRolloverStoryPoints(Map<String, Double> rolloverStoryPoints) {
     this.rolloverStoryPoints = rolloverStoryPoints;
+  }
+
+  public List<String> getPlannedIssueKeys() {
+    return plannedIssueKeys;
+  }
+
+  public void setPlannedIssueKeys(List<String> plannedIssueKeys) {
+    this.plannedIssueKeys = plannedIssueKeys;
+  }
+
+  public Instant getPlannedScopeCapturedAt() {
+    return plannedScopeCapturedAt;
+  }
+
+  public void setPlannedScopeCapturedAt(Instant plannedScopeCapturedAt) {
+    this.plannedScopeCapturedAt = plannedScopeCapturedAt;
+  }
+
+  public List<String> getCommittedIssueKeys() {
+    return committedIssueKeys;
+  }
+
+  public void setCommittedIssueKeys(List<String> committedIssueKeys) {
+    this.committedIssueKeys = committedIssueKeys;
+  }
+
+  public Instant getCommittedAt() {
+    return committedAt;
+  }
+
+  public void setCommittedAt(Instant committedAt) {
+    this.committedAt = committedAt;
+  }
+
+  public List<RolloverIssue> getRolloverIssues() {
+    return rolloverIssues;
+  }
+
+  public void setRolloverIssues(List<RolloverIssue> rolloverIssues) {
+    this.rolloverIssues = rolloverIssues;
   }
 
   public Instant getCreatedAt() {

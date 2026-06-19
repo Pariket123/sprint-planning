@@ -1,6 +1,8 @@
 package com.sprinklr.sprintplanning.planning.controller;
 
 import com.sprinklr.sprintplanning.common.dto.ApiResponse;
+import com.sprinklr.sprintplanning.planning.dto.PlannedIssueViewDto;
+import com.sprinklr.sprintplanning.planning.dto.PlannedScopeDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningDataDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningSummaryDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningValidationResultDto;
@@ -8,6 +10,7 @@ import com.sprinklr.sprintplanning.planning.dto.PlanningViewDto;
 import com.sprinklr.sprintplanning.planning.dto.UpdateCapacityRequest;
 import com.sprinklr.sprintplanning.planning.dto.UpdateLeavesRequest;
 import com.sprinklr.sprintplanning.planning.dto.UpdateOverridesRequest;
+import com.sprinklr.sprintplanning.planning.dto.UpdatePlannedScopeRequest;
 import com.sprinklr.sprintplanning.planning.mapper.PlanningMapper;
 import com.sprinklr.sprintplanning.planning.service.PlanningService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,6 +24,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/pods/{podId}/sprints/{jiraSprintId}/planning")
@@ -90,5 +95,31 @@ public class PlanningController {
       @PathVariable String podId,
       @PathVariable Long jiraSprintId) {
     return ResponseEntity.ok(ApiResponse.ok(planningService.validate(podId, jiraSprintId)));
+  }
+
+  @GetMapping("/planned-scope")
+  @Operation(summary = "Get stored planned issue keys for a sprint")
+  public ResponseEntity<ApiResponse<PlannedScopeDto>> getPlannedScope(
+      @PathVariable String podId,
+      @PathVariable Long jiraSprintId) {
+    return ResponseEntity.ok(ApiResponse.ok(planningService.getPlannedScope(podId, jiraSprintId)));
+  }
+
+  @PutMapping("/planned-scope")
+  @Operation(summary = "Save planned issue keys for a sprint")
+  public ResponseEntity<ApiResponse<PlannedScopeDto>> updatePlannedScope(
+      @PathVariable String podId,
+      @PathVariable Long jiraSprintId,
+      @Valid @RequestBody UpdatePlannedScopeRequest request) {
+    return ResponseEntity.ok(ApiResponse.ok(
+        planningService.updatePlannedScope(podId, jiraSprintId, request.plannedIssueKeys())));
+  }
+
+  @GetMapping("/planned-issues")
+  @Operation(summary = "Get planned issues with latest Jira details fetched by issue key")
+  public ResponseEntity<ApiResponse<List<PlannedIssueViewDto>>> getPlannedIssues(
+      @PathVariable String podId,
+      @PathVariable Long jiraSprintId) {
+    return ResponseEntity.ok(ApiResponse.ok(planningService.getPlannedIssues(podId, jiraSprintId)));
   }
 }
