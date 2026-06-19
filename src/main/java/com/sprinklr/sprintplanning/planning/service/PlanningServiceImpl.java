@@ -111,6 +111,7 @@ public class PlanningServiceImpl implements PlanningService {
     SprintView sprint = jiraClient.getSprint(jiraSprintId);
     Map<Domain, Double> computedRollover = computeRollover(podId, jiraSprintId);
     List<IssueView> selectedIssues = resolveSelectedIssues(podId, jiraSprintId);
+    List<IssueView> committedIssues = resolveCommittedIssues(podId, planning);
 
     PlanningCalculationInput input = new PlanningCalculationInput(
         jiraSprintId,
@@ -120,7 +121,8 @@ public class PlanningServiceImpl implements PlanningService {
         planning.getLeaves(),
         planning.getRolloverStoryPoints(),
         computedRollover,
-        selectedIssues);
+        selectedIssues,
+        committedIssues);
 
     return planningCalculator.calculateSummary(input);
   }
@@ -197,6 +199,32 @@ public class PlanningServiceImpl implements PlanningService {
     return new ArrayList<>(selected.values());
   }
 
+  private List<IssueView> resolveCommittedIssues(String podId, SprintPlanningDocument planning) {
+    List<String> committedKeys = planning.getCommittedIssueKeys();
+    if (committedKeys == null || committedKeys.isEmpty()) {
+      return List.of();
+    }
+
+    PodDocument pod = teamService.getActivePodDocument(podId);
+    JiraFieldConfig fieldConfig = jiraConfigMapper.toJiraFieldConfig(pod.getJiraConfig());
+    List<TicketViewDto> tickets = jiraClient.getIssuesByKeys(committedKeys, fieldConfig);
+
+    return tickets.stream()
+        .map(this::toIssueView)
+        .toList();
+  }
+
+  private IssueView toIssueView(TicketViewDto ticket) {
+    return new IssueView(
+        ticket.key(),
+        ticket.summary(),
+        ticket.domain(),
+        ticket.storyPoints(),
+        ticket.issueType(),
+        ticket.status(),
+        ticket.statusCategory());
+  }
+
   @Override
   public PlanningViewDto getPlanningView(String podId, Long jiraSprintId) {
     PodDocument pod = teamService.getActivePodDocument(podId);
@@ -207,6 +235,7 @@ public class PlanningServiceImpl implements PlanningService {
     List<IssueView> sprintIssues = jiraClient.getSprintIssues(jiraSprintId, fieldConfig);
     List<IssueView> selectedIssues = resolveSelectedIssues(podId, jiraSprintId);
     Map<Domain, Double> resolvedRollover = computeRollover(podId, jiraSprintId);
+    PlanningSummaryDto summary = calculateSummary(podId, jiraSprintId);
 
     return new PlanningViewDto(
         jiraSprintId,
@@ -220,7 +249,8 @@ public class PlanningServiceImpl implements PlanningService {
         selectedIssues,
         List.copyOf(planning.getPlannedIssueKeys()),
         List.copyOf(planning.getCommittedIssueKeys()),
-        rolloverService.getRolloverRecords(podId, jiraSprintId));
+        rolloverService.getRolloverRecords(podId, jiraSprintId),
+        summary.domainMetrics());
   }
 
   @Override

@@ -136,14 +136,6 @@ public class JiraRestClient {
   public JiraPagedResponse<JiraIssueDto> searchIssues(
       String jql, List<String> extraFields, int startAt, int maxResults) {
     List<String> fields = buildSearchFieldsList(extraFields);
-    // #region agent log
-    try (var fw = new java.io.FileWriter("/Users/pariket.pariket/project/.cursor/debug-0d262b.log", true)) {
-      fw.write("{\"sessionId\":\"0d262b\",\"runId\":\"post-fix\",\"hypothesisId\":\"A\",\"location\":\"JiraRestClient:searchIssues:request\",\"message\":\"jira search request\",\"data\":{\"endpoint\":\"/rest/api/3/search/jql\",\"jql\":\""
-          + jql.replace("\\", "\\\\").replace("\"", "\\\"") + "\",\"fieldCount\":" + fields.size()
-          + ",\"startAt\":" + startAt + ",\"maxResults\":" + maxResults + "},\"timestamp\":"
-          + System.currentTimeMillis() + "}\n");
-    } catch (Exception ignored) {}
-    // #endregion
 
     int remainingSkip = startAt;
     String nextPageToken = null;
@@ -191,14 +183,6 @@ public class JiraRestClient {
     response.setLast(exhausted || !moreAvailable);
     response.setIssues(collected);
 
-    // #region agent log
-    try (var fw = new java.io.FileWriter("/Users/pariket.pariket/project/.cursor/debug-0d262b.log", true)) {
-      fw.write("{\"sessionId\":\"0d262b\",\"runId\":\"post-fix\",\"hypothesisId\":\"A\",\"location\":\"JiraRestClient:searchIssues:success\",\"message\":\"jira search success\",\"data\":{\"issueCount\":"
-          + collected.size() + ",\"total\":" + response.getTotal() + ",\"isLast\":" + response.isLast()
-          + "},\"timestamp\":" + System.currentTimeMillis() + "}\n");
-    } catch (Exception ignored) {}
-    // #endregion
-
     return response;
   }
 
@@ -241,19 +225,6 @@ public class JiraRestClient {
         .retrieve()
         .onStatus(this::isRetryable, this::throwRetryable)
         .onStatus(HttpStatusCode::is4xxClientError, (request, clientResponse) -> {
-          // #region agent log
-          String errorBody = "";
-          int statusCode = clientResponse.getStatusCode().value();
-          try {
-            errorBody = new String(clientResponse.getBody().readAllBytes());
-          } catch (Exception ignored) {}
-          try (var fw = new java.io.FileWriter("/Users/pariket.pariket/project/.cursor/debug-0d262b.log", true)) {
-            fw.write("{\"sessionId\":\"0d262b\",\"runId\":\"post-fix\",\"hypothesisId\":\"A,B,C,D\",\"location\":\"JiraRestClient:executeJqlSearch:4xx\",\"message\":\"jira search error\",\"data\":{\"status\":"
-                + statusCode + ",\"body\":\""
-                + errorBody.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ") + "\"},\"timestamp\":"
-                + System.currentTimeMillis() + "}\n");
-          } catch (Exception ignored) {}
-          // #endregion
           throw JiraClientException.badRequest("Jira issue search failed");
         })
         .body(JiraSearchJqlResponse.class));

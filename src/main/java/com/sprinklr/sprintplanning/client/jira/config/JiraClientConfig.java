@@ -23,20 +23,9 @@ public class JiraClientConfig {
 
     String credentials = properties.getEmail() + ":" + properties.getApiToken();
     String encoded = Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
-    String baseUrl = trimTrailingSlash(properties.getBaseUrl());
-
-    // #region agent log
-    try (var fw = new java.io.FileWriter("/Users/pariket.pariket/project/.cursor/debug-0d262b.log", true)) {
-      fw.write("{\"sessionId\":\"0d262b\",\"hypothesisId\":\"D\",\"location\":\"JiraClientConfig:jiraHttpClient\",\"message\":\"jira client config\",\"data\":{\"baseUrl\":\""
-          + baseUrl.replace("\\", "\\\\").replace("\"", "\\\"") + "\",\"emailConfigured\":"
-          + (properties.getEmail() != null && !properties.getEmail().isBlank()) + ",\"tokenConfigured\":"
-          + (properties.getApiToken() != null && !properties.getApiToken().isBlank())
-          + "},\"timestamp\":" + System.currentTimeMillis() + "}\n");
-    } catch (Exception ignored) {}
-    // #endregion
 
     return RestClient.builder()
-        .baseUrl(baseUrl)
+        .baseUrl(trimTrailingSlash(properties.getBaseUrl()))
         .defaultHeader(HttpHeaders.AUTHORIZATION, "Basic " + encoded)
         .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
         .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)

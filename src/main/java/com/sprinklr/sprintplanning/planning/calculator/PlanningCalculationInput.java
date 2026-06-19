@@ -16,6 +16,7 @@ public record PlanningCalculationInput(
     List<LeaveEntry> leaves,
     Map<String, Double> manualRolloverOverrides,
     Map<com.sprinklr.sprintplanning.common.enums.Domain, Double> computedRollover,
-    List<IssueView> selectedIssues
+    List<IssueView> selectedIssues,
+    List<IssueView> committedIssues
 ) {
 }

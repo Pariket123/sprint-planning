@@ -10,6 +10,9 @@ public record DomainPlanningMetricsDto(
     double rollover,
     double selectedStoryPoints,
     int selectedIssueCount,
-    double suggestedCommitment
+    double suggestedCommitment,
+    double committedStoryPoints,
+    double utilizationPercent,
+    CapacityRiskStatus capacityRisk
 ) {
 }

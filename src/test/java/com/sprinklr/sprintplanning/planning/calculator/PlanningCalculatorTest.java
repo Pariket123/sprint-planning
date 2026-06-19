@@ -4,6 +4,7 @@ import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.enums.StatusCategory;
 import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.planning.config.PlanningProperties;
+import com.sprinklr.sprintplanning.planning.dto.CapacityRiskStatus;
 import com.sprinklr.sprintplanning.planning.dto.PlanningWarningCode;
 import com.sprinklr.sprintplanning.planning.dto.RiskLevel;
 import com.sprinklr.sprintplanning.planning.model.DomainCapacity;
@@ -48,7 +49,8 @@ class PlanningCalculatorTest {
         leaves,
         Map.of(),
         Map.of(Domain.DEV, 2.0, Domain.QA, 0.0, Domain.DESIGN, 0.0),
-        List.of(new IssueView("WFM-1", "Story", Domain.DEV, 5.0, "Story", "To Do", StatusCategory.TODO)));
+        List.of(new IssueView("WFM-1", "Story", Domain.DEV, 5.0, "Story", "To Do", StatusCategory.TODO)),
+        List.of());
 
     var summary = calculator.calculateSummary(input);
 
@@ -58,6 +60,9 @@ class PlanningCalculatorTest {
           assertThat(dev.rollover()).isEqualTo(2.0);
           assertThat(dev.suggestedCommitment()).isEqualTo(15.0);
           assertThat(dev.selectedStoryPoints()).isEqualTo(5.0);
+          assertThat(dev.committedStoryPoints()).isZero();
+          assertThat(dev.utilizationPercent()).isZero();
+          assertThat(dev.capacityRisk()).isEqualTo(CapacityRiskStatus.OK);
         });
     assertThat(summary.riskLevel()).isEqualTo(RiskLevel.LOW);
   }
@@ -99,7 +104,8 @@ class PlanningCalculatorTest {
         Map.of(Domain.DEV, 0.0, Domain.QA, 0.0, Domain.DESIGN, 0.0),
         List.of(
             new IssueView("WFM-1", "A", Domain.DEV, 8.0, "Story", "To Do", StatusCategory.TODO),
-            new IssueView("WFM-2", "B", Domain.DEV, 7.0, "Story", "To Do", StatusCategory.TODO)));
+            new IssueView("WFM-2", "B", Domain.DEV, 7.0, "Story", "To Do", StatusCategory.TODO)),
+        List.of());
 
     var summary = calculator.calculateSummary(input);
     var validation = calculator.validate(summary);
@@ -107,6 +113,51 @@ class PlanningCalculatorTest {
     assertThat(validation.warnings()).extracting("code")
         .contains(PlanningWarningCode.OVER_CAPACITY, PlanningWarningCode.DOMAIN_IMBALANCE);
     assertThat(validation.riskLevel()).isEqualTo(RiskLevel.HIGH);
+  }
+
+  @Test
+  void calculatesCommittedCapacityRiskMetrics() {
+    List<DomainCapacity> capacity = List.of(beCapacity(2, 100.0));
+
+    PlanningCalculationInput input = new PlanningCalculationInput(
+        12L,
+        Instant.parse("2026-06-08T00:00:00Z"),
+        Instant.parse("2026-06-12T00:00:00Z"),
+        capacity,
+        List.of(),
+        Map.of(),
+        Map.of(),
+        List.of(),
+        List.of(new IssueView("WFM-10", "Committed", Domain.BE, 11.0, "Story", "To Do", StatusCategory.TODO)));
+
+    var summary = calculator.calculateSummary(input);
+
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.BE).first()
+        .satisfies(be -> {
+          assertThat(be.availableCapacity()).isEqualTo(10.0);
+          assertThat(be.committedStoryPoints()).isEqualTo(11.0);
+          assertThat(be.utilizationPercent()).isEqualTo(110.0);
+          assertThat(be.capacityRisk()).isEqualTo(CapacityRiskStatus.OVER_CAPACITY);
+        });
+  }
+
+  @Test
+  void discoversDomainsDynamicallyFromCapacityAndIssues() {
+    PlanningCalculationInput input = new PlanningCalculationInput(
+        13L,
+        Instant.parse("2026-06-08T00:00:00Z"),
+        Instant.parse("2026-06-12T00:00:00Z"),
+        List.of(productCapacity(1, 100.0)),
+        List.of(),
+        Map.of(),
+        Map.of(),
+        List.of(),
+        List.of(new IssueView("WFM-11", "AI work", Domain.AI, 2.0, "Story", "To Do", StatusCategory.TODO)));
+
+    var summary = calculator.calculateSummary(input);
+
+    assertThat(summary.domainMetrics()).extracting("domain")
+        .containsExactly(Domain.AI, Domain.PRODUCT);
   }
 
   @Test
@@ -126,6 +177,22 @@ class PlanningCalculatorTest {
   private static DomainCapacity qaCapacity(int headcount, double bandwidth) {
     DomainCapacity capacity = new DomainCapacity();
     capacity.setDomain(Domain.QA);
+    capacity.setHeadcount(headcount);
+    capacity.setBandwidthPercent(bandwidth);
+    return capacity;
+  }
+
+  private static DomainCapacity beCapacity(int headcount, double bandwidth) {
+    DomainCapacity capacity = new DomainCapacity();
+    capacity.setDomain(Domain.BE);
+    capacity.setHeadcount(headcount);
+    capacity.setBandwidthPercent(bandwidth);
+    return capacity;
+  }
+
+  private static DomainCapacity productCapacity(int headcount, double bandwidth) {
+    DomainCapacity capacity = new DomainCapacity();
+    capacity.setDomain(Domain.PRODUCT);
     capacity.setHeadcount(headcount);
     capacity.setBandwidthPercent(bandwidth);
     return capacity;

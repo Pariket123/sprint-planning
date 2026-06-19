@@ -4,5 +4,9 @@ public enum Domain {
     DEV,
     QA,
     DESIGN,
+    BE,
+    UI,
+    AI,
+    PRODUCT,
     UNKNOWN
 }

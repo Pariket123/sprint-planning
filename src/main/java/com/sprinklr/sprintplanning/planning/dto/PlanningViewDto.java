@@ -2,6 +2,7 @@ package com.sprinklr.sprintplanning.planning.dto;
 
 import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.common.model.SprintView;
+import com.sprinklr.sprintplanning.planning.dto.RolloverIssueDto;
 import com.sprinklr.sprintplanning.planning.model.DomainCapacity;
 import com.sprinklr.sprintplanning.planning.model.LeaveEntry;
 import com.sprinklr.sprintplanning.planning.model.PlanningOverride;
@@ -23,6 +24,7 @@ public record PlanningViewDto(
     List<IssueView> selectedIssues,
     List<String> plannedIssueKeys,
     List<String> committedIssueKeys,
-    List<RolloverIssueDto> rolloverIssues
+    List<RolloverIssueDto> rolloverIssues,
+    List<DomainPlanningMetricsDto> domainMetrics
 ) {
 }

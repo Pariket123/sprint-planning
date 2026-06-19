@@ -4,6 +4,7 @@ import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.enums.StatusCategory;
 import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.planning.config.PlanningProperties;
+import com.sprinklr.sprintplanning.planning.dto.CapacityRiskStatus;
 import com.sprinklr.sprintplanning.planning.dto.DomainPlanningMetricsDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningSummaryDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningValidationResultDto;
@@ -20,8 +21,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,7 +32,7 @@ import java.util.Set;
 @Component
 public class PlanningCalculator {
 
-  private static final Set<Domain> PLANNING_DOMAINS = EnumSet.of(Domain.DEV, Domain.QA, Domain.DESIGN);
+  private static final Set<Domain> DEFAULT_DOMAINS = EnumSet.of(Domain.DEV, Domain.QA, Domain.DESIGN);
 
   private final PlanningProperties properties;
 
@@ -38,12 +41,13 @@ public class PlanningCalculator {
   }
 
   public Map<Domain, Double> computeRolloverFromIssues(List<IssueView> previousSprintIssues) {
-    Map<Domain, Double> rollover = initDomainMap();
-    for (IssueView issue : previousSprintIssues) {
+    Set<Domain> domains = discoverDomainsFromIssues(previousSprintIssues);
+    Map<Domain, Double> rollover = initDomainMap(domains);
+    for (IssueView issue : nullSafeIssues(previousSprintIssues)) {
       if (issue.statusCategory() == StatusCategory.DONE) {
         continue;
       }
-      if (!PLANNING_DOMAINS.contains(issue.domain())) {
+      if (!isPlanningDomain(issue.domain())) {
         continue;
       }
       rollover.merge(issue.domain(), storyPointsOrZero(issue.storyPoints()), Double::sum);
@@ -54,10 +58,11 @@ public class PlanningCalculator {
   public Map<Domain, Double> resolveRollover(
       Map<Domain, Double> computedRollover,
       Map<String, Double> manualOverrides) {
-    Map<Domain, Double> resolved = initDomainMap();
+    Set<Domain> domains = discoverDomainsFromRollover(computedRollover, manualOverrides);
+    Map<Domain, Double> resolved = initDomainMap(domains);
     if (computedRollover != null) {
       computedRollover.forEach((domain, value) -> {
-        if (PLANNING_DOMAINS.contains(domain) && value != null) {
+        if (isPlanningDomain(domain) && value != null) {
           resolved.put(domain, value);
         }
       });
@@ -65,7 +70,7 @@ public class PlanningCalculator {
     if (manualOverrides == null) {
       return resolved;
     }
-    for (Domain domain : PLANNING_DOMAINS) {
+    for (Domain domain : domains) {
       Double override = manualOverrides.get(domain.name());
       if (override != null) {
         resolved.put(domain, override);
@@ -82,10 +87,12 @@ public class PlanningCalculator {
     int holidayDays = countHolidayDays(input.leaves(), sprintStart, sprintEnd);
     int workingDays = Math.max(0, sprintBusinessDays - holidayDays);
 
+    Set<Domain> planningDomains = discoverPlanningDomains(input);
     Map<Domain, Double> availableCapacity = calculateAvailableCapacity(
-        input.capacity(), input.leaves(), sprintStart, sprintEnd, workingDays);
+        input.capacity(), input.leaves(), sprintStart, sprintEnd, workingDays, planningDomains);
     Map<Domain, Double> rollover = resolveRollover(input.computedRollover(), input.manualRolloverOverrides());
-    Map<Domain, SelectionMetrics> selection = calculateSelectionMetrics(input.selectedIssues());
+    Map<Domain, SelectionMetrics> selection = calculateIssueMetrics(input.selectedIssues(), planningDomains);
+    Map<Domain, SelectionMetrics> committed = calculateIssueMetrics(input.committedIssues(), planningDomains);
 
     List<DomainPlanningMetricsDto> domainMetrics = new ArrayList<>();
     double totalAvailable = 0;
@@ -93,24 +100,30 @@ public class PlanningCalculator {
     double totalSelected = 0;
     int totalIssueCount = 0;
 
-    for (Domain domain : PLANNING_DOMAINS) {
+    for (Domain domain : sortedDomains(planningDomains)) {
       double available = availableCapacity.getOrDefault(domain, 0.0);
       double domainRollover = rollover.getOrDefault(domain, 0.0);
-      SelectionMetrics metrics = selection.getOrDefault(domain, SelectionMetrics.EMPTY);
+      SelectionMetrics selectedMetrics = selection.getOrDefault(domain, SelectionMetrics.EMPTY);
+      SelectionMetrics committedMetrics = committed.getOrDefault(domain, SelectionMetrics.EMPTY);
       double suggestedCommitment = Math.max(0, available - domainRollover);
+      double committedStoryPoints = committedMetrics.storyPoints();
+      double utilizationPercent = calculateUtilizationPercent(committedStoryPoints, available);
 
       domainMetrics.add(new DomainPlanningMetricsDto(
           domain,
           round(available),
           round(domainRollover),
-          round(metrics.storyPoints()),
-          metrics.issueCount(),
-          round(suggestedCommitment)));
+          round(selectedMetrics.storyPoints()),
+          selectedMetrics.issueCount(),
+          round(suggestedCommitment),
+          round(committedStoryPoints),
+          round(utilizationPercent),
+          determineCapacityRisk(committedStoryPoints, available)));
 
       totalAvailable += available;
       totalRollover += domainRollover;
-      totalSelected += metrics.storyPoints();
-      totalIssueCount += metrics.issueCount();
+      totalSelected += selectedMetrics.storyPoints();
+      totalIssueCount += selectedMetrics.issueCount();
     }
 
     RiskLevel riskLevel = determineRiskLevel(totalSelected, totalAvailable);
@@ -133,6 +146,12 @@ public class PlanningCalculator {
         warnings.add(new PlanningWarningDto(
             PlanningWarningCode.OVER_CAPACITY,
             "Selected story points exceed available capacity for " + metrics.domain(),
+            metrics.domain()));
+      }
+      if (metrics.capacityRisk() == CapacityRiskStatus.OVER_CAPACITY) {
+        warnings.add(new PlanningWarningDto(
+            PlanningWarningCode.OVER_CAPACITY,
+            "Committed story points exceed available capacity for " + metrics.domain(),
             metrics.domain()));
       }
     }
@@ -171,18 +190,36 @@ public class PlanningCalculator {
     return new PlanningValidationResultDto(warnings, riskLevel);
   }
 
+  Set<Domain> discoverPlanningDomains(PlanningCalculationInput input) {
+    Set<Domain> domains = new LinkedHashSet<>();
+    addDomainsFromCapacity(domains, input.capacity());
+    addDomainsFromLeaves(domains, input.leaves());
+    addDomainsFromIssues(domains, input.selectedIssues());
+    addDomainsFromIssues(domains, input.committedIssues());
+    addDomainsFromRollover(domains, input.computedRollover(), input.manualRolloverOverrides());
+    if (domains.isEmpty()) {
+      domains.addAll(DEFAULT_DOMAINS);
+    }
+    return domains;
+  }
+
   private Map<Domain, Double> calculateAvailableCapacity(
       List<DomainCapacity> capacity,
       List<LeaveEntry> leaves,
       LocalDate sprintStart,
       LocalDate sprintEnd,
-      int workingDays) {
-    Map<Domain, Double> available = initDomainMap();
+      int workingDays,
+      Set<Domain> planningDomains) {
+    Map<Domain, Double> available = initDomainMap(planningDomains);
 
     if (capacity != null) {
       for (DomainCapacity entry : capacity) {
-        if (entry == null || entry.getDomain() == null || !PLANNING_DOMAINS.contains(entry.getDomain())) {
+        if (entry == null || !isPlanningDomain(entry.getDomain())) {
           continue;
+        }
+        if (!planningDomains.contains(entry.getDomain())) {
+          planningDomains.add(entry.getDomain());
+          available.put(entry.getDomain(), 0.0);
         }
         double memberDays = entry.getHeadcount()
             * (entry.getBandwidthPercent() / 100.0)
@@ -201,36 +238,143 @@ public class PlanningCalculator {
         }
         int leaveDays = countOverlappingBusinessDays(leave.getStartDate(), leave.getEndDate(), sprintStart, sprintEnd);
         if (leave.getDomain() == null) {
-          for (Domain domain : PLANNING_DOMAINS) {
+          for (Domain domain : planningDomains) {
             available.put(domain, available.get(domain) - leaveDays);
           }
-        } else if (PLANNING_DOMAINS.contains(leave.getDomain())) {
-          available.put(leave.getDomain(), available.get(leave.getDomain()) - leaveDays);
+        } else if (isPlanningDomain(leave.getDomain())) {
+          available.put(leave.getDomain(), available.getOrDefault(leave.getDomain(), 0.0) - leaveDays);
         }
       }
     }
 
-    for (Domain domain : PLANNING_DOMAINS) {
-      available.put(domain, Math.max(0, available.get(domain)));
+    for (Domain domain : planningDomains) {
+      available.put(domain, Math.max(0, available.getOrDefault(domain, 0.0)));
     }
     return available;
   }
 
-  private Map<Domain, SelectionMetrics> calculateSelectionMetrics(List<IssueView> issues) {
+  private Map<Domain, SelectionMetrics> calculateIssueMetrics(List<IssueView> issues, Set<Domain> planningDomains) {
     Map<Domain, SelectionMetrics> metrics = new EnumMap<>(Domain.class);
-    for (Domain domain : PLANNING_DOMAINS) {
+    for (Domain domain : planningDomains) {
       metrics.put(domain, new SelectionMetrics());
     }
-    if (issues == null) {
-      return metrics;
-    }
-    for (IssueView issue : issues) {
-      if (!PLANNING_DOMAINS.contains(issue.domain())) {
+    for (IssueView issue : nullSafeIssues(issues)) {
+      if (!isPlanningDomain(issue.domain())) {
         continue;
       }
-      metrics.get(issue.domain()).add(storyPointsOrZero(issue.storyPoints()));
+      metrics.computeIfAbsent(issue.domain(), ignored -> new SelectionMetrics())
+          .add(storyPointsOrZero(issue.storyPoints()));
     }
     return metrics;
+  }
+
+  private Set<Domain> discoverDomainsFromIssues(List<IssueView> issues) {
+    Set<Domain> domains = new LinkedHashSet<>();
+    addDomainsFromIssues(domains, issues);
+    if (domains.isEmpty()) {
+      domains.addAll(DEFAULT_DOMAINS);
+    }
+    return domains;
+  }
+
+  private Set<Domain> discoverDomainsFromRollover(
+      Map<Domain, Double> computedRollover,
+      Map<String, Double> manualOverrides) {
+    Set<Domain> domains = new LinkedHashSet<>();
+    addDomainsFromRollover(domains, computedRollover, manualOverrides);
+    if (domains.isEmpty()) {
+      domains.addAll(DEFAULT_DOMAINS);
+    }
+    return domains;
+  }
+
+  private void addDomainsFromCapacity(Set<Domain> domains, List<DomainCapacity> capacity) {
+    if (capacity == null) {
+      return;
+    }
+    for (DomainCapacity entry : capacity) {
+      if (entry != null && isPlanningDomain(entry.getDomain())) {
+        domains.add(entry.getDomain());
+      }
+    }
+  }
+
+  private void addDomainsFromLeaves(Set<Domain> domains, List<LeaveEntry> leaves) {
+    if (leaves == null) {
+      return;
+    }
+    for (LeaveEntry leave : leaves) {
+      if (leave != null && isPlanningDomain(leave.getDomain())) {
+        domains.add(leave.getDomain());
+      }
+    }
+  }
+
+  private void addDomainsFromIssues(Set<Domain> domains, List<IssueView> issues) {
+    for (IssueView issue : nullSafeIssues(issues)) {
+      if (isPlanningDomain(issue.domain())) {
+        domains.add(issue.domain());
+      }
+    }
+  }
+
+  private void addDomainsFromRollover(
+      Set<Domain> domains,
+      Map<Domain, Double> computedRollover,
+      Map<String, Double> manualOverrides) {
+    if (computedRollover != null) {
+      computedRollover.keySet().stream()
+          .filter(this::isPlanningDomain)
+          .forEach(domains::add);
+    }
+    if (manualOverrides != null) {
+      for (String domainName : manualOverrides.keySet()) {
+        parseDomain(domainName).ifPresent(domains::add);
+      }
+    }
+  }
+
+  private List<Domain> sortedDomains(Set<Domain> domains) {
+    return domains.stream()
+        .sorted(Comparator.comparing(Enum::name))
+        .toList();
+  }
+
+  private java.util.Optional<Domain> parseDomain(String domainName) {
+    if (domainName == null || domainName.isBlank()) {
+      return java.util.Optional.empty();
+    }
+    try {
+      Domain domain = Domain.valueOf(domainName.trim());
+      return isPlanningDomain(domain) ? java.util.Optional.of(domain) : java.util.Optional.empty();
+    } catch (IllegalArgumentException ex) {
+      return java.util.Optional.empty();
+    }
+  }
+
+  private boolean isPlanningDomain(Domain domain) {
+    return domain != null && domain != Domain.UNKNOWN;
+  }
+
+  private double calculateUtilizationPercent(double committedStoryPoints, double availableCapacity) {
+    if (availableCapacity <= 0) {
+      return committedStoryPoints > 0 ? 100.0 : 0.0;
+    }
+    return (committedStoryPoints / availableCapacity) * 100.0;
+  }
+
+  private CapacityRiskStatus determineCapacityRisk(double committedStoryPoints, double availableCapacity) {
+    if (availableCapacity <= 0) {
+      return committedStoryPoints > 0 ? CapacityRiskStatus.OVER_CAPACITY : CapacityRiskStatus.OK;
+    }
+    double utilization = committedStoryPoints / availableCapacity;
+    if (utilization > 1.0) {
+      return CapacityRiskStatus.OVER_CAPACITY;
+    }
+    if (utilization >= properties.getHighUtilizationThreshold()) {
+      return CapacityRiskStatus.NEAR_CAPACITY;
+    }
+    return CapacityRiskStatus.OK;
   }
 
   private int countHolidayDays(List<LeaveEntry> leaves, LocalDate sprintStart, LocalDate sprintEnd) {
@@ -292,12 +436,16 @@ public class PlanningCalculator {
     return RiskLevel.LOW;
   }
 
-  private Map<Domain, Double> initDomainMap() {
+  private Map<Domain, Double> initDomainMap(Set<Domain> domains) {
     Map<Domain, Double> map = new EnumMap<>(Domain.class);
-    for (Domain domain : PLANNING_DOMAINS) {
+    for (Domain domain : domains) {
       map.put(domain, 0.0);
     }
     return map;
+  }
+
+  private List<IssueView> nullSafeIssues(List<IssueView> issues) {
+    return issues != null ? issues : List.of();
   }
 
   private double storyPointsOrZero(Double storyPoints) {

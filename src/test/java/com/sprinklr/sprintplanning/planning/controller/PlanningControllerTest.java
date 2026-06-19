@@ -3,6 +3,7 @@ package com.sprinklr.sprintplanning.planning.controller;
 import com.sprinklr.sprintplanning.TestSecurityConfig;
 import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.model.SprintView;
+import com.sprinklr.sprintplanning.planning.dto.CapacityRiskStatus;
 import com.sprinklr.sprintplanning.planning.dto.DomainPlanningMetricsDto;
 import com.sprinklr.sprintplanning.planning.dto.PlannedScopeDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningDataDto;
@@ -62,6 +63,7 @@ class PlanningControllerTest {
         List.of(),
         List.of(),
         List.of(),
+        List.of(),
         List.of());
     when(planningService.getPlanningView("pod-1", 10L)).thenReturn(view);
 
@@ -116,7 +118,8 @@ class PlanningControllerTest {
         2.0,
         8.0,
         2,
-        List.of(new DomainPlanningMetricsDto(Domain.DEV, 20.0, 2.0, 8.0, 2, 18.0)),
+        List.of(new DomainPlanningMetricsDto(
+            Domain.DEV, 20.0, 2.0, 8.0, 2, 18.0, 6.0, 30.0, CapacityRiskStatus.OK)),
         RiskLevel.LOW);
     when(planningService.calculateSummary("pod-1", 10L)).thenReturn(summary);
 

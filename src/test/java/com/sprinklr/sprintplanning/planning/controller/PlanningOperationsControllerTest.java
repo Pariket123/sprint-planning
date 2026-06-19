@@ -62,6 +62,7 @@ class PlanningOperationsControllerTest {
         List.of(),
         List.of(),
         List.of(),
+        List.of(),
         List.of());
     when(planningService.moveIssuesToSprint(eq("pod-1"), eq(10L), any(IssueMoveRequest.class)))
         .thenReturn(view);
