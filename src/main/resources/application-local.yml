@@ -1,0 +1,10 @@
+# Local development profile — all requests permitted without JWT.
+# Use SPRING_PROFILES_ACTIVE=prod with AZURE_TENANT_ID for Microsoft SSO.
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration
+
+logging:
+  level:
+    com.sprinklr.sprintplanning: DEBUG

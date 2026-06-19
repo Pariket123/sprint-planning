@@ -1,0 +1,77 @@
+{
+  "teams": [
+    {
+      "code": "WFM",
+      "name": "Workforce Management",
+      "active": true,
+      "pods": [
+        {
+          "code": "FORECASTING",
+          "name": "Forecasting",
+          "active": true,
+          "jiraConfig": {
+            "boardId": 101,
+            "projectKeys": ["WFM"],
+            "fieldMappings": {
+              "storyPoints": "customfield_10016",
+              "domain": "customfield_10020",
+              "domainValues": {
+                "DEV": "Dev",
+                "QA": "QA",
+                "DESIGN": "Design"
+              }
+            },
+            "issueTypeMappings": {
+              "bugs": ["Bug", "Defect"],
+              "features": ["Story", "Task", "Epic"]
+            }
+          }
+        },
+        {
+          "code": "REPORTING",
+          "name": "Reporting",
+          "active": true,
+          "jiraConfig": {
+            "boardId": 102,
+            "projectKeys": ["WFM"],
+            "fieldMappings": {
+              "storyPoints": "customfield_10016",
+              "domain": "customfield_10020",
+              "domainValues": {
+                "DEV": "Dev",
+                "QA": "QA",
+                "DESIGN": "Design"
+              }
+            },
+            "issueTypeMappings": {
+              "bugs": ["Bug", "Defect"],
+              "features": ["Story", "Task", "Epic"]
+            }
+          }
+        },
+        {
+          "code": "CONFIGURATION",
+          "name": "Configuration",
+          "active": true,
+          "jiraConfig": {
+            "boardId": 103,
+            "projectKeys": ["WFM"],
+            "fieldMappings": {
+              "storyPoints": "customfield_10016",
+              "domain": "customfield_10020",
+              "domainValues": {
+                "DEV": "Dev",
+                "QA": "QA",
+                "DESIGN": "Design"
+              }
+            },
+            "issueTypeMappings": {
+              "bugs": ["Bug", "Defect"],
+              "features": ["Story", "Task", "Epic"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
