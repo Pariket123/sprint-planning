@@ -12,6 +12,10 @@ import com.sprinklr.sprintplanning.planning.config.PlanningProperties;
 import com.sprinklr.sprintplanning.planning.dto.IssueMoveRequest;
 import com.sprinklr.sprintplanning.planning.dto.PlannedIssueViewDto;
 import com.sprinklr.sprintplanning.planning.dto.PlannedScopeDto;
+import com.sprinklr.sprintplanning.planning.dto.PlanningSummaryDto;
+import com.sprinklr.sprintplanning.planning.dto.PlanningViewDto;
+import com.sprinklr.sprintplanning.planning.dto.CapacityRiskStatus;
+import com.sprinklr.sprintplanning.planning.model.DomainCapacity;
 import com.sprinklr.sprintplanning.planning.model.OverrideAction;
 import com.sprinklr.sprintplanning.planning.model.PlanningOverride;
 import com.sprinklr.sprintplanning.planning.model.SprintPlanningDocument;
@@ -229,6 +233,74 @@ class PlanningServiceImplTest {
     verify(jiraClient).getBacklogIssues(101L, fieldConfig(), 0, 50);
   }
 
+  @Test
+  void calculateSummaryFetchesCommittedIssuesFromJira() {
+    PodDocument pod = podWithBoard(101L);
+    when(teamService.getActivePodDocument("pod-1")).thenReturn(pod);
+    when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig());
+
+    SprintPlanningDocument planning = new SprintPlanningDocument();
+    planning.setPodId("pod-1");
+    planning.setJiraSprintId(20L);
+    planning.setCommittedIssueKeys(new ArrayList<>(List.of("WFM-9")));
+    DomainCapacity devCapacity = new DomainCapacity();
+    devCapacity.setDomain(Domain.DEV);
+    devCapacity.setHeadcount(1);
+    devCapacity.setBandwidthPercent(100);
+    planning.setCapacity(List.of(devCapacity));
+
+    when(sprintPlanningRepository.findByPodIdAndJiraSprintId("pod-1", 20L))
+        .thenReturn(Optional.of(planning));
+
+    SprintView sprint = new SprintView(
+        20L, "Sprint 20", "active",
+        Instant.parse("2026-06-08T00:00:00Z"),
+        Instant.parse("2026-06-12T00:00:00Z"),
+        null);
+    when(jiraClient.getSprint(20L)).thenReturn(sprint);
+    when(jiraClient.getBoardSprints(101L, "closed")).thenReturn(List.of());
+    when(jiraClient.getSprintIssues(eq(20L), any())).thenReturn(List.of());
+    when(jiraClient.getIssuesByKeys(eq(List.of("WFM-9")), any()))
+        .thenReturn(List.of(ticket("WFM-9", List.of(20L), Domain.BE, 6.0)));
+
+    PlanningSummaryDto summary = planningService.calculateSummary("pod-1", 20L);
+
+    verify(jiraClient).getIssuesByKeys(eq(List.of("WFM-9")), any());
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.BE).first()
+        .satisfies(be -> {
+          assertThat(be.committedStoryPoints()).isEqualTo(6.0);
+          assertThat(be.capacityRisk()).isEqualTo(CapacityRiskStatus.OVER_CAPACITY);
+        });
+  }
+
+  @Test
+  void getPlanningViewIncludesDomainMetrics() {
+    PodDocument pod = podWithBoard(101L);
+    when(teamService.getActivePodDocument("pod-1")).thenReturn(pod);
+    when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig());
+
+    SprintPlanningDocument planning = new SprintPlanningDocument();
+    planning.setPodId("pod-1");
+    planning.setJiraSprintId(20L);
+    when(sprintPlanningRepository.findByPodIdAndJiraSprintId("pod-1", 20L))
+        .thenReturn(Optional.of(planning));
+
+    SprintView sprint = new SprintView(
+        20L, "Sprint 20", "active",
+        Instant.parse("2026-06-08T00:00:00Z"),
+        Instant.parse("2026-06-12T00:00:00Z"),
+        null);
+    when(jiraClient.getSprint(20L)).thenReturn(sprint);
+    when(jiraClient.getBoardSprints(101L, "closed")).thenReturn(List.of());
+    when(jiraClient.getSprintIssues(eq(20L), any())).thenReturn(List.of());
+    when(rolloverService.getRolloverRecords("pod-1", 20L)).thenReturn(List.of());
+
+    PlanningViewDto view = planningService.getPlanningView("pod-1", 20L);
+
+    assertThat(view.domainMetrics()).isNotNull();
+    assertThat(view.domainMetrics()).isNotEmpty();
+  }
+
   private static PodDocument podWithBoard(Long boardId) {
     PodDocument pod = new PodDocument();
     pod.setId("pod-1");
@@ -243,8 +315,12 @@ class PlanningServiceImplTest {
   }
 
   private static TicketViewDto ticket(String key, List<Long> sprintIds) {
+    return ticket(key, sprintIds, Domain.DEV, 2.0);
+  }
+
+  private static TicketViewDto ticket(String key, List<Long> sprintIds, Domain domain, double storyPoints) {
     return new TicketViewDto(
         key, "Summary", "Story", "In Progress", StatusCategory.IN_PROGRESS,
-        2.0, Domain.DEV, null, null, "High", List.of(), sprintIds, List.of(), List.of());
+        storyPoints, domain, null, null, "High", List.of(), sprintIds, List.of(), List.of());
   }
 }

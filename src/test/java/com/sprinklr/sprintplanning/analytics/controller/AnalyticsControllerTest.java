@@ -62,7 +62,8 @@ class AnalyticsControllerTest {
             new CategoryMetricsDto(2, 10.0),
             new CategoryMetricsDto(0, 0.0)),
         List.of(new StatusDistributionItemDto("Done", StatusCategory.DONE, 1, 5.0)),
-        List.of(new DomainBreakdownItemDto(Domain.DEV, 2, 10.0)));
+        List.of(new DomainBreakdownItemDto(
+            Domain.DEV, 2, 10.0, 66.67, 76.92, 1, 5.0, 1, 5.0, 50.0, 50.0)));
 
     when(analyticsService.getSprintAnalytics("pod-1", 10L)).thenReturn(analytics);
 
@@ -71,6 +72,8 @@ class AnalyticsControllerTest {
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.totalStoryPoints").value(13.0))
         .andExpect(jsonPath("$.data.issueCounts.completed").value(1))
-        .andExpect(jsonPath("$.data.bugsVsFeatures.bugs.count").value(1));
+        .andExpect(jsonPath("$.data.bugsVsFeatures.bugs.count").value(1))
+        .andExpect(jsonPath("$.data.domainBreakdown[0].issueCountPercentage").value(66.67))
+        .andExpect(jsonPath("$.data.domainBreakdown[0].storyPointCompletionPercentage").value(50.0));
   }
 }

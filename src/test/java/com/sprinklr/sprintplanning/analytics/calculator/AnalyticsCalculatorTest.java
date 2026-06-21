@@ -55,6 +55,49 @@ class AnalyticsCalculatorTest {
   }
 
   @Test
+  void calculatesDomainBreakdownPercentagesAndCompletionMetrics() {
+    List<IssueView> issues = List.of(
+        new IssueView("WFM-1", "Done 1", Domain.DEV, 5.0, "Story", "Done", StatusCategory.DONE),
+        new IssueView("WFM-2", "Done 2", Domain.DEV, 5.0, "Story", "Done", StatusCategory.DONE),
+        new IssueView("WFM-3", "Done 3", Domain.DEV, 5.0, "Story", "Done", StatusCategory.DONE),
+        new IssueView("WFM-4", "Open 1", Domain.DEV, 5.0, "Story", "To Do", StatusCategory.TODO),
+        new IssueView("WFM-5", "Open 2", Domain.DEV, 5.0, "Story", "To Do", StatusCategory.TODO),
+        new IssueView("WFM-6", "QA done", Domain.QA, 4.0, "Bug", "Done", StatusCategory.DONE),
+        new IssueView("WFM-7", "QA open", Domain.QA, 3.0, "Bug", "To Do", StatusCategory.TODO),
+        new IssueView("WFM-8", "QA open 2", Domain.QA, 3.0, "Bug", "To Do", StatusCategory.TODO));
+
+    AnalyticsResponse response = calculator.calculate(42L, "Sprint 42", issues, fieldConfig);
+
+    assertThat(response.domainBreakdown()).filteredOn(item -> item.domain() == Domain.DEV).first()
+        .satisfies(dev -> {
+          assertThat(dev.count()).isEqualTo(5);
+          assertThat(dev.storyPoints()).isEqualTo(25.0);
+          assertThat(dev.issueCountPercentage()).isEqualTo(62.5);
+          assertThat(dev.storyPointPercentage()).isEqualTo(71.43);
+          assertThat(dev.completedIssueCount()).isEqualTo(3);
+          assertThat(dev.completedStoryPoints()).isEqualTo(15.0);
+          assertThat(dev.remainingIssueCount()).isEqualTo(2);
+          assertThat(dev.remainingStoryPoints()).isEqualTo(10.0);
+          assertThat(dev.issueCompletionPercentage()).isEqualTo(60.0);
+          assertThat(dev.storyPointCompletionPercentage()).isEqualTo(60.0);
+        });
+
+    assertThat(response.domainBreakdown()).filteredOn(item -> item.domain() == Domain.QA).first()
+        .satisfies(qa -> {
+          assertThat(qa.count()).isEqualTo(3);
+          assertThat(qa.storyPoints()).isEqualTo(10.0);
+          assertThat(qa.issueCountPercentage()).isEqualTo(37.5);
+          assertThat(qa.storyPointPercentage()).isEqualTo(28.57);
+          assertThat(qa.completedIssueCount()).isEqualTo(1);
+          assertThat(qa.completedStoryPoints()).isEqualTo(4.0);
+          assertThat(qa.remainingIssueCount()).isEqualTo(2);
+          assertThat(qa.remainingStoryPoints()).isEqualTo(6.0);
+          assertThat(qa.issueCompletionPercentage()).isEqualTo(33.33);
+          assertThat(qa.storyPointCompletionPercentage()).isEqualTo(40.0);
+        });
+  }
+
+  @Test
   void returnsEmptyMetricsForNoIssues() {
     AnalyticsResponse response = calculator.calculate(1L, "Empty Sprint", List.of(), fieldConfig);
 

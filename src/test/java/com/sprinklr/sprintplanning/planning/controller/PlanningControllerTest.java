@@ -126,7 +126,45 @@ class PlanningControllerTest {
     mockMvc.perform(get("/api/v1/pods/pod-1/sprints/10/planning/summary"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
-        .andExpect(jsonPath("$.data.totalAvailableCapacity").value(20.0));
+        .andExpect(jsonPath("$.data.totalAvailableCapacity").value(20.0))
+        .andExpect(jsonPath("$.data.domainMetrics[0].committedStoryPoints").value(6.0))
+        .andExpect(jsonPath("$.data.domainMetrics[0].capacityRisk").value("OK"));
+  }
+
+  @Test
+  void getPlannedScopeReturnsEnvelope() throws Exception {
+    when(planningService.getPlannedScope("pod-1", 10L))
+        .thenReturn(new PlannedScopeDto(List.of("CARE-1"), Instant.now()));
+
+    mockMvc.perform(get("/api/v1/pods/pod-1/sprints/10/planning/planned-scope"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.plannedIssueKeys[0]").value("CARE-1"));
+  }
+
+  @Test
+  void getPlanningReturnsDomainMetrics() throws Exception {
+    PlanningViewDto view = new PlanningViewDto(
+        10L,
+        new SprintView(10L, "Sprint 10", "active", Instant.now(), Instant.now(), null),
+        List.of(),
+        List.of(),
+        List.of(),
+        Map.of(),
+        Map.of("DEV", 2.0),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(new DomainPlanningMetricsDto(
+            Domain.DEV, 20.0, 2.0, 8.0, 2, 18.0, 6.0, 30.0, CapacityRiskStatus.OK)));
+    when(planningService.getPlanningView("pod-1", 10L)).thenReturn(view);
+
+    mockMvc.perform(get("/api/v1/pods/pod-1/sprints/10/planning"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.domainMetrics[0].committedStoryPoints").value(6.0))
+        .andExpect(jsonPath("$.data.domainMetrics[0].capacityRisk").value("OK"));
   }
 
   @Test

@@ -161,6 +161,55 @@ class PlanningCalculatorTest {
   }
 
   @Test
+  void validatesCommittedOverCapacity() {
+    List<DomainCapacity> capacity = List.of(devCapacity(1, 100.0));
+
+    PlanningCalculationInput input = new PlanningCalculationInput(
+        14L,
+        Instant.parse("2026-06-08T00:00:00Z"),
+        Instant.parse("2026-06-12T00:00:00Z"),
+        capacity,
+        List.of(),
+        Map.of(),
+        Map.of(),
+        List.of(),
+        List.of(new IssueView("WFM-9", "Committed", Domain.DEV, 6.0, "Story", "To Do", StatusCategory.TODO)));
+
+    var summary = calculator.calculateSummary(input);
+    var validation = calculator.validate(summary);
+
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.DEV).first()
+        .satisfies(dev -> assertThat(dev.capacityRisk()).isEqualTo(CapacityRiskStatus.OVER_CAPACITY));
+    assertThat(validation.warnings()).extracting("code")
+        .contains(PlanningWarningCode.OVER_CAPACITY);
+  }
+
+  @Test
+  void calculatesNearCapacityRiskWhenCommittedUtilizationIsHigh() {
+    List<DomainCapacity> capacity = List.of(devCapacity(1, 100.0));
+
+    PlanningCalculationInput input = new PlanningCalculationInput(
+        15L,
+        Instant.parse("2026-06-08T00:00:00Z"),
+        Instant.parse("2026-06-12T00:00:00Z"),
+        capacity,
+        List.of(),
+        Map.of(),
+        Map.of(),
+        List.of(),
+        List.of(new IssueView("WFM-8", "Committed", Domain.DEV, 4.5, "Story", "To Do", StatusCategory.TODO)));
+
+    var summary = calculator.calculateSummary(input);
+
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.DEV).first()
+        .satisfies(dev -> {
+          assertThat(dev.committedStoryPoints()).isEqualTo(4.5);
+          assertThat(dev.utilizationPercent()).isEqualTo(90.0);
+          assertThat(dev.capacityRisk()).isEqualTo(CapacityRiskStatus.NEAR_CAPACITY);
+        });
+  }
+
+  @Test
   void countsBusinessDaysExcludingWeekends() {
     assertThat(calculator.countBusinessDays(LocalDate.of(2026, 6, 8), LocalDate.of(2026, 6, 14)))
         .isEqualTo(5);

@@ -59,7 +59,7 @@ public class AnalyticsCalculator {
           .computeIfAbsent(statusKey, key -> new StatusBucket(issue.status(), issue.statusCategory()))
           .add(points);
 
-      domainBuckets.get(issue.domain()).add(points);
+      domainBuckets.get(issue.domain()).add(points, completed);
     }
 
     int total = issues.size();
@@ -77,7 +77,7 @@ public class AnalyticsCalculator {
             features.toDto(),
             other.toDto()),
         toStatusDistribution(statusBuckets),
-        toDomainBreakdown(domainBuckets));
+        toDomainBreakdown(domainBuckets, total, totalStoryPoints));
   }
 
   private IssueCategory classifyIssue(IssueView issue, JiraFieldConfig fieldConfig) {
@@ -102,19 +102,42 @@ public class AnalyticsCalculator {
         .toList();
   }
 
-  private List<DomainBreakdownItemDto> toDomainBreakdown(Map<Domain, CategoryMetrics> buckets) {
+  private List<DomainBreakdownItemDto> toDomainBreakdown(
+      Map<Domain, CategoryMetrics> buckets, int totalIssues, double totalStoryPoints) {
     List<DomainBreakdownItemDto> breakdown = new ArrayList<>();
     for (Domain domain : Domain.values()) {
       CategoryMetrics metrics = buckets.get(domain);
       if (metrics.count > 0) {
-        breakdown.add(new DomainBreakdownItemDto(domain, metrics.count, metrics.storyPoints));
+        breakdown.add(new DomainBreakdownItemDto(
+            domain,
+            metrics.count,
+            round(metrics.storyPoints),
+            percentage(metrics.count, totalIssues),
+            percentage(metrics.storyPoints, totalStoryPoints),
+            metrics.completedCount,
+            round(metrics.completedStoryPoints),
+            metrics.count - metrics.completedCount,
+            round(metrics.storyPoints - metrics.completedStoryPoints),
+            percentage(metrics.completedCount, metrics.count),
+            percentage(metrics.completedStoryPoints, metrics.storyPoints)));
       }
     }
     return breakdown;
   }
 
+  private double percentage(double numerator, double denominator) {
+    if (denominator <= 0) {
+      return 0.0;
+    }
+    return round((numerator / denominator) * 100.0);
+  }
+
   private double storyPointsOrZero(Double storyPoints) {
     return storyPoints != null ? storyPoints : 0.0;
+  }
+
+  private double round(double value) {
+    return Math.round(value * 100.0) / 100.0;
   }
 
   private enum IssueCategory {
@@ -124,10 +147,20 @@ public class AnalyticsCalculator {
   private static class CategoryMetrics {
     int count;
     double storyPoints;
+    int completedCount;
+    double completedStoryPoints;
 
     void add(double points) {
+      add(points, false);
+    }
+
+    void add(double points, boolean completed) {
       count++;
       storyPoints += points;
+      if (completed) {
+        completedCount++;
+        completedStoryPoints += points;
+      }
     }
 
     CategoryMetricsDto toDto() {

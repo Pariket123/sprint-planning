@@ -113,6 +113,33 @@ class IssueSearchServiceImplTest {
   }
 
   @Test
+  void searchInReleaseAppliesUserProvidedFixVersionExcludes() {
+    ReleaseConfigDocument release = new ReleaseConfigDocument();
+    release.setId("release-1");
+    release.setPodId("pod-1");
+    release.setTeamId("team-1");
+    release.setFixVersionExcludes(List.of("Cancelled", "Won't Fix"));
+    release.setBasicFilters(new ReleaseBasicFilters());
+
+    PodDocument pod = podWithProjects("pod-1", List.of("CARE"));
+    JiraFieldConfig fieldConfig = fieldConfig();
+
+    when(teamService.getActivePodDocument("pod-1")).thenReturn(pod);
+    when(releaseService.getActiveReleaseDocument("pod-1", "release-1")).thenReturn(release);
+    when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig);
+    when(jiraClient.searchIssues(any(), eq(fieldConfig), eq(0), eq(25)))
+        .thenReturn(searchPage(ticket("CARE-2")));
+
+    issueSearchService.searchInRelease("pod-1", "release-1", IssueSearchFilters.empty(), 0, 25);
+
+    verify(jiraClient).searchIssues(
+        eq("project IN (\"CARE\") AND fixVersion NOT IN (\"Cancelled\", \"Won't Fix\") ORDER BY updated DESC"),
+        eq(fieldConfig),
+        eq(0),
+        eq(25));
+  }
+
+  @Test
   void searchInReleaseReturnsEmptyWhenMergedFiltersConflict() {
     ReleaseConfigDocument release = new ReleaseConfigDocument();
     release.setId("release-1");
