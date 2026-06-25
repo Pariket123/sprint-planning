@@ -23,6 +23,7 @@ class JiraIssueMappingHelperTest {
   void setUp() {
     fieldConfig = new JiraFieldConfig(
         "customfield_10016",
+        "customfield_10109",
         "customfield_10020",
         Map.of("DEV", "Dev", "QA", "QA", "DESIGN", "Design"),
         List.of("Bug"),
@@ -42,7 +43,7 @@ class JiraIssueMappingHelperTest {
               "statusCategory": { "key": "indeterminate" }
             },
             "customfield_10016": 5,
-            "customfield_10020": { "value": "Dev" }
+            "customfield_10109": { "value": "Dev" }
           }
         }
         """);
@@ -96,12 +97,12 @@ class JiraIssueMappingHelperTest {
             "fixVersions": [{ "name": "Q3 2026" }, { "name": "Release-12.4" }],
             "labels": ["backend", "urgent"],
             "components": [{ "name": "API" }],
-            "customfield_10010": [
+            "customfield_10020": [
               { "id": 37, "name": "Sprint 12", "state": "closed" },
               { "id": 42, "name": "Sprint 13", "state": "active" }
             ],
             "customfield_10016": 3,
-            "customfield_10020": { "value": "QA" }
+            "customfield_10109": { "value": "QA" }
           }
         }
         """);
@@ -110,10 +111,34 @@ class JiraIssueMappingHelperTest {
     assertThat(helper.resolveAssigneeDisplayName(issue)).isEqualTo("Jane Doe");
     assertThat(helper.resolvePriority(issue)).isEqualTo("High");
     assertThat(helper.resolveFixVersions(issue)).containsExactly("Q3 2026", "Release-12.4");
-    assertThat(helper.resolveSprintIds(issue)).containsExactly(37L, 42L);
+    assertThat(helper.resolveSprintIds(issue, fieldConfig)).containsExactly(37L, 42L);
+    assertThat(helper.resolveCurrentSprintId(issue, fieldConfig)).isEqualTo(42L);
     assertThat(helper.resolveLabels(issue)).containsExactly("backend", "urgent");
     assertThat(helper.resolveComponents(issue)).containsExactly("API");
     assertThat(helper.resolveDomain(issue, fieldConfig)).isEqualTo(Domain.QA);
+  }
+
+  @Test
+  void resolvesSprintIdsFromGreenhopperStringFormat() throws Exception {
+    JiraIssueDto issue = readIssue("""
+        {
+          "key": "SCRUM-6",
+          "fields": {
+            "summary": "Analytics Service",
+            "issuetype": { "name": "Story" },
+            "status": {
+              "name": "To Do",
+              "statusCategory": { "key": "new" }
+            },
+            "customfield_10020": [
+              "com.atlassian.greenhopper.service.sprint.Sprint@1a2b3c[id=3,rapidViewId=1,state=FUTURE,name=SCRUM Sprint 1,startDate=<null>,endDate=<null>,completeDate=<null>,sequence=2]"
+            ]
+          }
+        }
+        """);
+
+    assertThat(helper.resolveSprintIds(issue, fieldConfig)).containsExactly(3L);
+    assertThat(helper.resolveCurrentSprintId(issue, fieldConfig)).isEqualTo(3L);
   }
 
   @Test
@@ -136,9 +161,171 @@ class JiraIssueMappingHelperTest {
     assertThat(helper.resolveAssigneeDisplayName(issue)).isNull();
     assertThat(helper.resolvePriority(issue)).isNull();
     assertThat(helper.resolveFixVersions(issue)).isEmpty();
-    assertThat(helper.resolveSprintIds(issue)).isEmpty();
+    assertThat(helper.resolveSprintIds(issue, fieldConfig)).isEmpty();
     assertThat(helper.resolveLabels(issue)).isEmpty();
     assertThat(helper.resolveComponents(issue)).isEmpty();
+  }
+
+  @Test
+  void resolvesSprintIdsFromConfiguredFieldId() throws Exception {
+    JiraFieldConfig config = new JiraFieldConfig(
+        "customfield_10016",
+        "customfield_10109",
+        "customfield_10042",
+        Map.of("DEV", "Dev"),
+        List.of("Bug"),
+        List.of("Story"));
+
+    JiraIssueDto issue = readIssue("""
+        {
+          "key": "WFM-5",
+          "fields": {
+            "summary": "Sprint issue",
+            "issuetype": { "name": "Story" },
+            "status": {
+              "name": "To Do",
+              "statusCategory": { "key": "new" }
+            },
+            "customfield_10042": [
+              { "id": 7, "name": "SCRUM Sprint 1", "state": "future" }
+            ]
+          }
+        }
+        """);
+
+    assertThat(helper.resolveSprintIds(issue, config)).containsExactly(7L);
+  }
+
+  @Test
+  void usesLegacyStoryPointsForNonEngineeringDomains() throws Exception {
+    JiraFieldConfig multiDomainConfig = new JiraFieldConfig(
+        "customfield_10016",
+        "customfield_10109",
+        "customfield_10020",
+        Map.of("DEV", "Dev", "BE", "Backend"),
+        List.of("Bug"),
+        List.of("Story"),
+        Map.of(),
+        Map.of("BE", "customfield_10144", "UI", "customfield_10146", "AI", "customfield_10145"),
+        "customfield_10143",
+        Map.of("BE", "Be", "UI", "Ui", "AI", "Ai"));
+
+    JiraIssueDto devIssue = readIssue("""
+        {
+          "key": "SCRUM-1",
+          "fields": {
+            "summary": "Dev task",
+            "issuetype": { "name": "Story" },
+            "status": {
+              "name": "Done",
+              "statusCategory": { "key": "done" }
+            },
+            "customfield_10109": { "value": "Dev" },
+            "customfield_10016": 3
+          }
+        }
+        """);
+
+    JiraIssueDto backendIssue = readIssue("""
+        {
+          "key": "SCRUM-2",
+          "fields": {
+            "summary": "Backend task",
+            "issuetype": { "name": "Story" },
+            "status": {
+              "name": "In Progress",
+              "statusCategory": { "key": "indeterminate" }
+            },
+            "customfield_10109": { "value": "Backend" },
+            "customfield_10016": 99,
+            "customfield_10144": 4
+          }
+        }
+        """);
+
+    assertThat(helper.resolveDomainAllocations(devIssue, multiDomainConfig))
+        .containsExactly(
+            new com.sprinklr.sprintplanning.common.model.DomainAllocation(Domain.DEV, 3.0, false));
+    assertThat(helper.resolveStoryPoints(devIssue, multiDomainConfig)).isEqualTo(3.0);
+    assertThat(helper.resolveDomainAllocations(backendIssue, multiDomainConfig))
+        .containsExactly(
+            new com.sprinklr.sprintplanning.common.model.DomainAllocation(Domain.BE, 4.0, false));
+    assertThat(helper.resolveStoryPoints(backendIssue, multiDomainConfig)).isEqualTo(4.0);
+  }
+
+  @Test
+  void resolvesMultiDomainAllocationsWithMissingPerDomainStoryPointsAsZero() throws Exception {
+    JiraFieldConfig multiDomainConfig = new JiraFieldConfig(
+        "customfield_10016",
+        "customfield_10109",
+        "customfield_10020",
+        Map.of("BE", "Backend", "UI", "Ui"),
+        List.of("Bug"),
+        List.of("Story"),
+        Map.of(),
+        Map.of("BE", "customfield_10144", "UI", "customfield_10146"),
+        "customfield_10143",
+        Map.of("BE", "Be", "UI", "Ui"));
+
+    JiraIssueDto issue = readIssue("""
+        {
+          "key": "WFM-11",
+          "fields": {
+            "summary": "Backend only",
+            "issuetype": { "name": "Story" },
+            "status": {
+              "name": "To Do",
+              "statusCategory": { "key": "new" }
+            },
+            "customfield_10109": { "value": "Backend" }
+          }
+        }
+        """);
+
+    assertThat(helper.resolveDomainAllocations(issue, multiDomainConfig))
+        .containsExactly(
+            new com.sprinklr.sprintplanning.common.model.DomainAllocation(Domain.BE, 0.0, false));
+    assertThat(helper.resolveStoryPoints(issue, multiDomainConfig)).isZero();
+  }
+
+  @Test
+  void resolvesMultiDomainAllocationsFromPerDomainFieldsAndCompletionCheckboxes() throws Exception {
+    JiraFieldConfig multiDomainConfig = new JiraFieldConfig(
+        "customfield_10016",
+        "customfield_10109",
+        "customfield_10020",
+        Map.of("BE", "Backend", "UI", "Ui", "AI", "Ai"),
+        List.of("Bug"),
+        List.of("Story"),
+        Map.of("BE+UI", "Backend+Ui"),
+        Map.of("BE", "customfield_10144", "UI", "customfield_10146", "AI", "customfield_10145"),
+        "customfield_10143",
+        Map.of("BE", "Be", "UI", "Ui", "AI", "Ai"));
+
+    JiraIssueDto issue = readIssue("""
+        {
+          "key": "WFM-10",
+          "fields": {
+            "summary": "Composite issue",
+            "issuetype": { "name": "Story" },
+            "status": {
+              "name": "In Progress",
+              "statusCategory": { "key": "indeterminate" }
+            },
+            "customfield_10109": { "value": "Backend+Ui" },
+            "customfield_10144": 3,
+            "customfield_10146": 2,
+            "customfield_10143": [{ "value": "Be" }]
+          }
+        }
+        """);
+
+    assertThat(helper.resolveStoryPoints(issue, multiDomainConfig)).isEqualTo(5.0);
+    assertThat(helper.resolveDomain(issue, multiDomainConfig)).isEqualTo(Domain.BE);
+    assertThat(helper.resolveDomainAllocations(issue, multiDomainConfig))
+        .containsExactly(
+            new com.sprinklr.sprintplanning.common.model.DomainAllocation(Domain.BE, 3.0, true),
+            new com.sprinklr.sprintplanning.common.model.DomainAllocation(Domain.UI, 2.0, false));
   }
 
   private JiraIssueDto readIssue(String json) throws Exception {

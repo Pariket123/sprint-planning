@@ -1,7 +1,7 @@
 package com.sprinklr.sprintplanning.planning.calculator;
 
 import com.sprinklr.sprintplanning.common.model.IssueView;
-import com.sprinklr.sprintplanning.planning.model.DomainCapacity;
+import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
 import com.sprinklr.sprintplanning.planning.model.LeaveEntry;
 
 import java.time.Instant;
@@ -12,7 +12,7 @@ public record PlanningCalculationInput(
     Long jiraSprintId,
     Instant sprintStart,
     Instant sprintEnd,
-    List<DomainCapacity> capacity,
+    List<PersonCapacity> capacity,
     List<LeaveEntry> leaves,
     Map<String, Double> manualRolloverOverrides,
     Map<com.sprinklr.sprintplanning.common.enums.Domain, Double> computedRollover,

@@ -3,6 +3,7 @@ package com.sprinklr.sprintplanning.analytics.calculator;
 import com.sprinklr.sprintplanning.analytics.dto.AnalyticsResponse;
 import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.enums.StatusCategory;
+import com.sprinklr.sprintplanning.common.model.DomainAllocation;
 import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.common.model.JiraFieldConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +24,7 @@ class AnalyticsCalculatorTest {
     calculator = new AnalyticsCalculator();
     fieldConfig = new JiraFieldConfig(
         "customfield_10016",
+        "customfield_10109",
         "customfield_10020",
         Map.of("DEV", "Dev", "QA", "QA"),
         List.of("Bug"),
@@ -94,6 +96,46 @@ class AnalyticsCalculatorTest {
           assertThat(qa.remainingStoryPoints()).isEqualTo(6.0);
           assertThat(qa.issueCompletionPercentage()).isEqualTo(33.33);
           assertThat(qa.storyPointCompletionPercentage()).isEqualTo(40.0);
+        });
+  }
+
+  @Test
+  void countsJiraDoneIssuesAsCompletedEvenWhenDevCompletedCheckboxesAreUnset() {
+    List<IssueView> issues = List.of(
+        new IssueView(
+            "SCRUM-1",
+            "Done dev task",
+            Domain.DEV,
+            3.0,
+            "Story",
+            "Done",
+            StatusCategory.DONE,
+            List.of(new DomainAllocation(Domain.DEV, 3.0, false))),
+        new IssueView(
+            "SCRUM-2",
+            "Backend in progress",
+            Domain.BE,
+            4.0,
+            "Story",
+            "In Progress",
+            StatusCategory.IN_PROGRESS,
+            List.of(new DomainAllocation(Domain.BE, 4.0, false))));
+
+    AnalyticsResponse response = calculator.calculate(2L, "SCRUM Sprint 0", issues, fieldConfig);
+
+    assertThat(response.issueCounts().total()).isEqualTo(2);
+    assertThat(response.issueCounts().completed()).isEqualTo(1);
+    assertThat(response.issueCounts().remaining()).isEqualTo(1);
+    assertThat(response.domainBreakdown()).filteredOn(item -> item.domain() == Domain.DEV).first()
+        .satisfies(dev -> {
+          assertThat(dev.count()).isEqualTo(1);
+          assertThat(dev.completedIssueCount()).isEqualTo(1);
+        });
+    assertThat(response.domainBreakdown()).filteredOn(item -> item.domain() == Domain.BE).first()
+        .satisfies(be -> {
+          assertThat(be.storyPoints()).isEqualTo(4.0);
+          assertThat(be.completedStoryPoints()).isZero();
+          assertThat(be.remainingStoryPoints()).isEqualTo(4.0);
         });
   }
 

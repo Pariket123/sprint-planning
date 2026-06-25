@@ -6,10 +6,19 @@ import java.time.LocalDate;
 
 public class LeaveEntry {
 
+  private String personName;
   private LocalDate startDate;
   private LocalDate endDate;
   private Domain domain;
   private LeaveType type = LeaveType.LEAVE;
+
+  public String getPersonName() {
+    return personName;
+  }
+
+  public void setPersonName(String personName) {
+    this.personName = personName;
+  }
 
   public LocalDate getStartDate() {
     return startDate;

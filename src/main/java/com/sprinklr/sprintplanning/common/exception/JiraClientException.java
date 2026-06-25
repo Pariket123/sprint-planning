@@ -23,4 +23,8 @@ public class JiraClientException extends ApiException {
     public static JiraClientException badRequest(String message) {
         return new JiraClientException("JIRA_BAD_REQUEST", message);
     }
+
+    public static JiraClientException unauthorized(String message) {
+        return new JiraClientException("JIRA_UNAUTHORIZED", message);
+    }
 }

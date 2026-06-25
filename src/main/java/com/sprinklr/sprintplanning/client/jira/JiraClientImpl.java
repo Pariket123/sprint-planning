@@ -21,6 +21,9 @@ import java.util.Set;
 @Service
 public class JiraClientImpl implements JiraClient {
 
+  /** Default Jira Cloud sprint field when pod config does not specify one. */
+  static final String DEFAULT_SPRINT_FIELD_ID = "customfield_10020";
+
   private final JiraRestClient jiraRestClient;
   private final JiraSprintMapper jiraSprintMapper;
   private final JiraIssueMapper jiraIssueMapper;
@@ -83,6 +86,12 @@ public class JiraClientImpl implements JiraClient {
   }
 
   @Override
+  public List<IssueView> searchAllIssues(String jql, JiraFieldConfig fieldConfig) {
+    List<JiraIssueDto> issues = jiraRestClient.searchAllIssues(jql, resolveExtraFields(fieldConfig));
+    return jiraIssueMapper.toIssueViews(issues, fieldConfig);
+  }
+
+  @Override
   public IssueSearchPage searchIssues(String jql, JiraFieldConfig fieldConfig, int startAt, int maxResults) {
     JiraPagedResponse<JiraIssueDto> page = jiraRestClient.searchIssues(
         jql, resolveExtraFields(fieldConfig), startAt, maxResults);
@@ -102,16 +111,28 @@ public class JiraClientImpl implements JiraClient {
   }
 
   private List<String> resolveExtraFields(JiraFieldConfig fieldConfig) {
-    if (fieldConfig == null) {
-      return List.of();
-    }
     Set<String> fields = new LinkedHashSet<>();
+    if (fieldConfig == null) {
+      fields.add(DEFAULT_SPRINT_FIELD_ID);
+      return new ArrayList<>(fields);
+    }
     if (fieldConfig.storyPointsFieldId() != null) {
       fields.add(fieldConfig.storyPointsFieldId());
     }
     if (fieldConfig.domainFieldId() != null) {
       fields.add(fieldConfig.domainFieldId());
     }
+    if (fieldConfig.domainStoryPointFields() != null) {
+      fields.addAll(fieldConfig.domainStoryPointFields().values());
+    }
+    if (fieldConfig.domainCompletionFieldId() != null) {
+      fields.add(fieldConfig.domainCompletionFieldId());
+    }
+    String sprintFieldId = fieldConfig.sprintFieldId();
+    if (sprintFieldId == null || sprintFieldId.isBlank()) {
+      sprintFieldId = DEFAULT_SPRINT_FIELD_ID;
+    }
+    fields.add(sprintFieldId);
     return new ArrayList<>(fields);
   }
 }

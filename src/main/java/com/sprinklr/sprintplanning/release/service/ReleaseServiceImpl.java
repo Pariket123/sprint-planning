@@ -2,13 +2,10 @@ package com.sprinklr.sprintplanning.release.service;
 
 import com.sprinklr.sprintplanning.common.exception.ApiException;
 import com.sprinklr.sprintplanning.common.exception.ResourceNotFoundException;
-import com.sprinklr.sprintplanning.common.util.StringListNormalizer;
 import com.sprinklr.sprintplanning.release.dto.CreateReleaseRequest;
-import com.sprinklr.sprintplanning.release.dto.ReleaseBasicFiltersDto;
 import com.sprinklr.sprintplanning.release.dto.ReleaseResponse;
 import com.sprinklr.sprintplanning.release.dto.UpdateReleaseRequest;
 import com.sprinklr.sprintplanning.release.mapper.ReleaseMapper;
-import com.sprinklr.sprintplanning.release.model.ReleaseBasicFilters;
 import com.sprinklr.sprintplanning.release.model.ReleaseConfigDocument;
 import com.sprinklr.sprintplanning.release.repository.ReleaseConfigRepository;
 import com.sprinklr.sprintplanning.team.model.PodDocument;
@@ -56,8 +53,7 @@ public class ReleaseServiceImpl implements ReleaseService {
     ReleaseConfigDocument document = new ReleaseConfigDocument();
     document.setTeamId(pod.getTeamId());
     document.setPodId(podId);
-    applyRequest(document, request.name(), request.description(),
-        request.fixVersionIncludes(), request.fixVersionExcludes(), request.basicFilters());
+    applyRequest(document, request.name(), request.description(), request.baseJql());
     document.setActive(true);
     document.setCreatedAt(now);
     document.setUpdatedAt(now);
@@ -68,8 +64,7 @@ public class ReleaseServiceImpl implements ReleaseService {
   @Override
   public ReleaseResponse updateRelease(String podId, String releaseId, UpdateReleaseRequest request) {
     ReleaseConfigDocument document = getActiveReleaseDocument(podId, releaseId);
-    applyRequest(document, request.name(), request.description(),
-        request.fixVersionIncludes(), request.fixVersionExcludes(), request.basicFilters());
+    applyRequest(document, request.name(), request.description(), request.baseJql());
     document.setUpdatedAt(Instant.now());
 
     return releaseMapper.toReleaseResponse(save(document));
@@ -99,9 +94,7 @@ public class ReleaseServiceImpl implements ReleaseService {
       ReleaseConfigDocument document,
       String name,
       String description,
-      List<String> fixVersionIncludes,
-      List<String> fixVersionExcludes,
-      ReleaseBasicFiltersDto basicFilters) {
+      String baseJql) {
     String trimmedName = name != null ? name.trim() : null;
     if (trimmedName == null || trimmedName.isEmpty()) {
       throw new ApiException("VALIDATION_ERROR", "Release name is required", HttpStatus.BAD_REQUEST);
@@ -109,22 +102,14 @@ public class ReleaseServiceImpl implements ReleaseService {
 
     document.setName(trimmedName);
     document.setDescription(description != null ? description.trim() : null);
-    document.setFixVersionIncludes(StringListNormalizer.normalize(fixVersionIncludes));
-    document.setFixVersionExcludes(StringListNormalizer.normalize(fixVersionExcludes));
-    document.setBasicFilters(normalizeBasicFilters(basicFilters));
+    document.setBaseJql(normalizeJql(baseJql));
   }
 
-  private ReleaseBasicFilters normalizeBasicFilters(ReleaseBasicFiltersDto dto) {
-    ReleaseBasicFilters filters = new ReleaseBasicFilters();
-    if (dto == null) {
-      return filters;
+  private String normalizeJql(String jql) {
+    if (jql == null || jql.isBlank()) {
+      return null;
     }
-    filters.setIssueTypes(StringListNormalizer.normalize(dto.issueTypes()));
-    filters.setStatuses(StringListNormalizer.normalize(dto.statuses()));
-    filters.setDomains(StringListNormalizer.normalize(dto.domains()));
-    filters.setPriorities(StringListNormalizer.normalize(dto.priorities()));
-    filters.setAssigneeIds(StringListNormalizer.normalize(dto.assigneeIds()));
-    return filters;
+    return jql.trim();
   }
 
   private ReleaseConfigDocument save(ReleaseConfigDocument document) {

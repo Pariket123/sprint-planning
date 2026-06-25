@@ -46,7 +46,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     JiraFieldConfig fieldConfig = jiraConfigMapper.toJiraFieldConfig(pod.getJiraConfig());
 
     SprintView sprint = jiraClient.getSprint(jiraSprintId);
-    var issues = jiraClient.getSprintIssues(jiraSprintId, fieldConfig);
+    var issues = jiraClient.searchAllIssues("sprint = " + jiraSprintId, fieldConfig);
 
     return analyticsCalculator.calculate(jiraSprintId, sprint.name(), issues, fieldConfig);
   }

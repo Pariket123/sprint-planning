@@ -54,6 +54,11 @@ public class JiraRestClient {
           .retrieve()
           .onStatus(this::isRetryable, this::throwRetryable)
           .onStatus(HttpStatusCode::is4xxClientError, (request, clientResponse) -> {
+            int status = clientResponse.getStatusCode().value();
+            if (status == 401 || status == 403) {
+              throw JiraClientException.unauthorized(
+                  "Jira authentication failed. Set JIRA_EMAIL and JIRA_API_TOKEN (or add them to a .env file in the project root).");
+            }
             throw JiraClientException.badRequest("Jira sprint list failed for board " + boardId);
           })
           .body(new ParameterizedTypeReference<JiraPagedResponse<JiraSprintDto>>() {});
@@ -191,6 +196,10 @@ public class JiraRestClient {
       return List.of();
     }
     String jql = buildIssueKeysJql(issueKeys);
+    return searchAllIssues(jql, extraFields);
+  }
+
+  public List<JiraIssueDto> searchAllIssues(String jql, List<String> extraFields) {
     return fetchAllSearchResults(jql, extraFields);
   }
 

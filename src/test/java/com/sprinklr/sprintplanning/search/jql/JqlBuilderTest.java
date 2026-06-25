@@ -21,6 +21,7 @@ class JqlBuilderTest {
     jqlBuilder = new JqlBuilder();
     fieldConfig = new JiraFieldConfig(
         "customfield_10016",
+        "customfield_10109",
         "customfield_10020",
         Map.of("BE", "Backend", "UI", "Frontend"),
         List.of("Bug"),

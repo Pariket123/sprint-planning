@@ -5,18 +5,33 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.sprinklr.sprintplanning.client.jira.dto.JiraIssueDto;
 import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.enums.StatusCategory;
+import com.sprinklr.sprintplanning.common.model.DomainAllocation;
 import com.sprinklr.sprintplanning.common.model.JiraFieldConfig;
 import org.mapstruct.Context;
 import org.mapstruct.Named;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.Iterator;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 public class JiraIssueMappingHelper {
+
+  private static final Set<Domain> PER_DOMAIN_STORY_POINT_DOMAINS =
+      EnumSet.of(Domain.BE, Domain.UI, Domain.AI);
+
+  private static final Pattern SPRINT_ID_IN_TEXT = Pattern.compile("id=(\\d+)");
+  private static final Pattern SPRINT_STATE_IN_TEXT =
+      Pattern.compile("state=([A-Za-z_]+)", Pattern.CASE_INSENSITIVE);
 
   @Named("resolveSummary")
   public String resolveSummary(JiraIssueDto issue) {
@@ -57,14 +72,196 @@ public class JiraIssueMappingHelper {
 
   @Named("resolveStoryPoints")
   public Double resolveStoryPoints(JiraIssueDto issue, @Context JiraFieldConfig config) {
-    if (config == null || config.storyPointsFieldId() == null) {
-      return null;
+    List<DomainAllocation> allocations = resolveDomainAllocations(issue, config);
+    if (!allocations.isEmpty()) {
+      return allocations.stream().mapToDouble(DomainAllocation::storyPoints).sum();
+    }
+    return readNumberField(fieldsOrNull(issue), config != null ? config.storyPointsFieldId() : null);
+  }
+
+  @Named("resolveDomainAllocations")
+  public List<DomainAllocation> resolveDomainAllocations(JiraIssueDto issue, @Context JiraFieldConfig config) {
+    if (config == null || !config.hasMultiDomainSupport()) {
+      return List.of();
     }
     JsonNode fields = issue.getFields();
     if (fields == null) {
+      return List.of();
+    }
+
+    String jiraDomainValue = extractFieldValue(fields.path(config.domainFieldId()));
+    List<Domain> domains = parseDomainsFromSelect(jiraDomainValue, config);
+    if (domains.isEmpty() || domains.stream().allMatch(domain -> domain == Domain.UNKNOWN)) {
+      return List.of();
+    }
+
+    Set<String> completedOptions = readMultiCheckboxOptions(
+        fields.path(config.domainCompletionFieldId()));
+
+    List<DomainAllocation> allocations = new ArrayList<>();
+    for (Domain domain : domains) {
+      if (domain == null || domain == Domain.UNKNOWN) {
+        continue;
+      }
+      double storyPoints = resolveAllocationStoryPoints(fields, domain, config);
+      boolean completed = isDomainCompleted(domain, completedOptions, config);
+      allocations.add(new DomainAllocation(domain, storyPoints, completed));
+    }
+    return allocations;
+  }
+
+  private double resolveAllocationStoryPoints(JsonNode fields, Domain domain, JiraFieldConfig config) {
+    if (usesPerDomainStoryPoints(domain)) {
+      String storyPointFieldId = config.domainStoryPointFields().get(domain.name());
+      return numberOrZero(readNumberField(fields, storyPointFieldId));
+    }
+    return numberOrZero(readNumberField(fields, config.storyPointsFieldId()));
+  }
+
+  private boolean usesPerDomainStoryPoints(Domain domain) {
+    return domain != null && PER_DOMAIN_STORY_POINT_DOMAINS.contains(domain);
+  }
+
+  @Named("resolveDomain")
+  public Domain resolveDomain(JiraIssueDto issue, @Context JiraFieldConfig config) {
+    List<DomainAllocation> allocations = resolveDomainAllocations(issue, config);
+    if (!allocations.isEmpty()) {
+      return allocations.getFirst().domain();
+    }
+
+    if (config == null || config.domainFieldId() == null) {
+      return Domain.UNKNOWN;
+    }
+    JsonNode fields = issue.getFields();
+    if (fields == null) {
+      return Domain.UNKNOWN;
+    }
+    String jiraValue = extractFieldValue(fields.path(config.domainFieldId()));
+    List<Domain> domains = parseDomainsFromSelect(jiraValue, config);
+    return domains.isEmpty() ? Domain.UNKNOWN : domains.getFirst();
+  }
+
+  List<Domain> parseDomainsFromSelect(String jiraValue, JiraFieldConfig config) {
+    if (jiraValue == null || jiraValue.isBlank() || config == null) {
+      return List.of(Domain.UNKNOWN);
+    }
+
+    if (config.compositeDomainValues() != null) {
+      for (Map.Entry<String, String> entry : config.compositeDomainValues().entrySet()) {
+        if (jiraValue.equalsIgnoreCase(entry.getValue())) {
+          return parseDomainKeys(entry.getKey());
+        }
+      }
+    }
+
+    if (config.domainValues() != null) {
+      for (Map.Entry<String, String> entry : config.domainValues().entrySet()) {
+        if (jiraValue.equalsIgnoreCase(entry.getValue())) {
+          return domainsFromKey(entry.getKey());
+        }
+      }
+    }
+
+    if (jiraValue.contains("+")) {
+      List<Domain> domains = new ArrayList<>();
+      for (String token : jiraValue.split("\\+")) {
+        mapTokenToDomain(token.trim(), config).ifPresent(domains::add);
+      }
+      if (!domains.isEmpty()) {
+        return domains;
+      }
+    }
+
+    return mapTokenToDomain(jiraValue, config).map(List::of).orElse(List.of(Domain.UNKNOWN));
+  }
+
+  private List<Domain> parseDomainKeys(String compositeKey) {
+    if (compositeKey == null || compositeKey.isBlank()) {
+      return List.of(Domain.UNKNOWN);
+    }
+    List<Domain> domains = new ArrayList<>();
+    for (String token : compositeKey.split("\\+")) {
+      resolveDomainEnum(token.trim()).ifPresent(domains::add);
+    }
+    return domains.isEmpty() ? List.of(Domain.UNKNOWN) : domains;
+  }
+
+  private List<Domain> domainsFromKey(String domainKey) {
+    return resolveDomainEnum(domainKey).map(List::of).orElse(List.of(Domain.UNKNOWN));
+  }
+
+  private Optional<Domain> resolveDomainEnum(String domainKey) {
+    if (domainKey == null || domainKey.isBlank()) {
+      return Optional.empty();
+    }
+    try {
+      return Optional.of(Domain.valueOf(domainKey.trim()));
+    } catch (IllegalArgumentException ex) {
+      return Optional.empty();
+    }
+  }
+
+  private Optional<Domain> mapTokenToDomain(String token, JiraFieldConfig config) {
+    if (token == null || token.isBlank()) {
+      return Optional.empty();
+    }
+    Optional<Domain> direct = resolveDomainEnum(token);
+    if (direct.isPresent()) {
+      return direct;
+    }
+    if (config.domainValues() != null) {
+      for (Map.Entry<String, String> entry : config.domainValues().entrySet()) {
+        if (token.equalsIgnoreCase(entry.getValue()) || token.equalsIgnoreCase(entry.getKey())) {
+          return resolveDomainEnum(entry.getKey());
+        }
+      }
+    }
+    return Optional.empty();
+  }
+
+  private boolean isDomainCompleted(Domain domain, Set<String> completedOptions, JiraFieldConfig config) {
+    if (config.domainCompletionValues() == null || completedOptions.isEmpty()) {
+      return false;
+    }
+    String optionLabel = config.domainCompletionValues().get(domain.name());
+    if (optionLabel == null) {
+      return false;
+    }
+    return completedOptions.stream().anyMatch(option -> optionLabel.equalsIgnoreCase(option));
+  }
+
+  private Set<String> readMultiCheckboxOptions(JsonNode node) {
+    Set<String> options = new HashSet<>();
+    if (node.isMissingNode() || node.isNull()) {
+      return options;
+    }
+    if (node.isArray()) {
+      for (JsonNode item : node) {
+        String value = extractFieldValue(item);
+        if (value != null) {
+          options.add(value);
+        }
+      }
+      return options;
+    }
+    if (node.isBoolean()) {
+      if (node.asBoolean()) {
+        options.add("true");
+      }
+      return options;
+    }
+    String value = extractFieldValue(node);
+    if (value != null) {
+      options.add(value);
+    }
+    return options;
+  }
+
+  private Double readNumberField(JsonNode fields, String fieldId) {
+    if (fieldId == null || fields == null) {
       return null;
     }
-    JsonNode value = fields.path(config.storyPointsFieldId());
+    JsonNode value = fields.path(fieldId);
     if (value.isMissingNode() || value.isNull()) {
       return null;
     }
@@ -78,29 +275,8 @@ public class JiraIssueMappingHelper {
     }
   }
 
-  @Named("resolveDomain")
-  public Domain resolveDomain(JiraIssueDto issue, @Context JiraFieldConfig config) {
-    if (config == null || config.domainFieldId() == null) {
-      return Domain.UNKNOWN;
-    }
-    JsonNode fields = issue.getFields();
-    if (fields == null) {
-      return Domain.UNKNOWN;
-    }
-    String jiraValue = extractFieldValue(fields.path(config.domainFieldId()));
-    if (jiraValue == null) {
-      return Domain.UNKNOWN;
-    }
-    for (Map.Entry<String, String> entry : config.domainValues().entrySet()) {
-      if (jiraValue.equalsIgnoreCase(entry.getValue())) {
-        try {
-          return Domain.valueOf(entry.getKey());
-        } catch (IllegalArgumentException ex) {
-          return Domain.UNKNOWN;
-        }
-      }
-    }
-    return Domain.UNKNOWN;
+  private double numberOrZero(Double value) {
+    return value != null ? value : 0.0;
   }
 
   @Named("resolveAssigneeId")
@@ -147,27 +323,134 @@ public class JiraIssueMappingHelper {
   }
 
   @Named("resolveSprintIds")
-  public List<Long> resolveSprintIds(JiraIssueDto issue) {
+  public List<Long> resolveSprintIds(JiraIssueDto issue, @Context JiraFieldConfig config) {
     JsonNode fields = fieldsOrNull(issue);
     if (fields.isMissingNode()) {
       return List.of();
     }
-    List<Long> sprintIds = new ArrayList<>();
+    JsonNode sprintField = sprintFieldNode(fields, config);
+    List<SprintRef> refs = !sprintField.isMissingNode() && !sprintField.isNull()
+        ? parseSprintRefs(sprintField)
+        : findSprintRefsInAllFields(fields);
+    return orderSprintIdsWithCurrentLast(refs);
+  }
+
+  /**
+   * Resolves the issue's current sprint from the configured sprint field, preferring active/future
+   * sprints over closed ones when Jira returns sprint history.
+   */
+  public Long resolveCurrentSprintId(JiraIssueDto issue, JiraFieldConfig config) {
+    List<Long> sprintIds = resolveSprintIds(issue, config);
+    if (sprintIds.isEmpty()) {
+      return null;
+    }
+    return sprintIds.getLast();
+  }
+
+  private JsonNode sprintFieldNode(JsonNode fields, JiraFieldConfig config) {
+    if (config != null && config.sprintFieldId() != null && !config.sprintFieldId().isBlank()) {
+      return fields.path(config.sprintFieldId());
+    }
+    return JsonNodeFactory.instance.missingNode();
+  }
+
+  private List<SprintRef> findSprintRefsInAllFields(JsonNode fields) {
+    List<SprintRef> refs = new ArrayList<>();
     Iterator<Map.Entry<String, JsonNode>> fieldIterator = fields.fields();
     while (fieldIterator.hasNext()) {
-      Map.Entry<String, JsonNode> entry = fieldIterator.next();
-      JsonNode node = entry.getValue();
-      if (!node.isArray()) {
-        continue;
+      refs.addAll(parseSprintRefs(fieldIterator.next().getValue()));
+    }
+    return refs;
+  }
+
+  private List<Long> orderSprintIdsWithCurrentLast(List<SprintRef> refs) {
+    if (refs.isEmpty()) {
+      return List.of();
+    }
+    Long preferredId = resolvePreferredSprintIdFromRefs(refs).orElse(refs.getLast().id());
+    LinkedHashSet<Long> ordered = new LinkedHashSet<>();
+    for (SprintRef ref : refs) {
+      if (ref.id() != preferredId) {
+        ordered.add(ref.id());
       }
-      for (JsonNode item : node) {
-        if (item.has("id") && item.has("state") && item.get("id").isNumber()) {
-          sprintIds.add(item.get("id").asLong());
+    }
+    ordered.add(preferredId);
+    return new ArrayList<>(ordered);
+  }
+
+  private Optional<Long> resolvePreferredSprintIdFromRefs(List<SprintRef> refs) {
+    for (String preferredState : List.of("active", "future")) {
+      for (int index = refs.size() - 1; index >= 0; index--) {
+        SprintRef ref = refs.get(index);
+        if (preferredState.equalsIgnoreCase(ref.state())) {
+          return Optional.of(ref.id());
         }
       }
     }
-    return sprintIds.stream().distinct().toList();
+    return Optional.empty();
   }
+
+  private Optional<Long> resolvePreferredSprintId(JsonNode sprintField) {
+    return resolvePreferredSprintIdFromRefs(parseSprintRefs(sprintField));
+  }
+
+  private List<SprintRef> parseSprintRefs(JsonNode node) {
+    if (!node.isArray()) {
+      return List.of();
+    }
+    List<SprintRef> refs = new ArrayList<>();
+    for (JsonNode item : node) {
+      parseSprintRef(item).ifPresent(refs::add);
+    }
+    return refs;
+  }
+
+  private Optional<SprintRef> parseSprintRef(JsonNode item) {
+    if (item.isObject() && item.has("id")) {
+      JsonNode idNode = item.get("id");
+      Long id = idNode.isNumber() ? idNode.asLong() : parseLong(idNode.asText());
+      if (id == null) {
+        return Optional.empty();
+      }
+      String state = textOrNull(item.path("state"));
+      return Optional.of(new SprintRef(id, state != null ? state : "unknown"));
+    }
+    if (item.isTextual()) {
+      return parseSprintRefFromText(item.asText());
+    }
+    return Optional.empty();
+  }
+
+  private Optional<SprintRef> parseSprintRefFromText(String text) {
+    Matcher idMatcher = SPRINT_ID_IN_TEXT.matcher(text);
+    if (!idMatcher.find()) {
+      return Optional.empty();
+    }
+    Long id = parseLong(idMatcher.group(1));
+    if (id == null) {
+      return Optional.empty();
+    }
+    Matcher stateMatcher = SPRINT_STATE_IN_TEXT.matcher(text);
+    String state = stateMatcher.find() ? stateMatcher.group(1) : "unknown";
+    return Optional.of(new SprintRef(id, state));
+  }
+
+  private List<Long> parseSprintFieldNode(JsonNode node) {
+    return orderSprintIdsWithCurrentLast(parseSprintRefs(node));
+  }
+
+  private Long parseLong(String value) {
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    try {
+      return Long.parseLong(value);
+    } catch (NumberFormatException ex) {
+      return null;
+    }
+  }
+
+  private record SprintRef(long id, String state) {}
 
   @Named("resolveLabels")
   public List<String> resolveLabels(JiraIssueDto issue) {

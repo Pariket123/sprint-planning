@@ -1,8 +1,10 @@
 package com.sprinklr.sprintplanning.search.controller;
 
+import com.sprinklr.sprintplanning.analytics.dto.AnalyticsResponse;
 import com.sprinklr.sprintplanning.common.dto.ApiResponse;
 import com.sprinklr.sprintplanning.search.dto.IssueSearchFilters;
 import com.sprinklr.sprintplanning.search.dto.IssueSearchPageDto;
+import com.sprinklr.sprintplanning.search.dto.IssueSearchReleaseRequest;
 import com.sprinklr.sprintplanning.search.service.IssueSearchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,14 +37,24 @@ public class IssueSearchController {
   }
 
   @PostMapping("/api/v1/pods/{podId}/releases/{releaseId}/issues/search")
-  @Operation(summary = "Search issues in a pod release using release config merged with request filters")
+  @Operation(summary = "Search issues in a release using base JQL merged with optional additional JQL")
   public ResponseEntity<ApiResponse<IssueSearchPageDto>> searchInRelease(
       @PathVariable String podId,
       @PathVariable String releaseId,
       @RequestParam(defaultValue = "0") int startAt,
       @RequestParam(defaultValue = "50") int maxResults,
-      @RequestBody(required = false) IssueSearchFilters filters) {
+      @RequestBody(required = false) IssueSearchReleaseRequest request) {
     return ResponseEntity.ok(ApiResponse.ok(
-        issueSearchService.searchInRelease(podId, releaseId, filters, startAt, maxResults)));
+        issueSearchService.searchInRelease(podId, releaseId, request, startAt, maxResults)));
+  }
+
+  @PostMapping("/api/v1/pods/{podId}/releases/{releaseId}/issues/analytics")
+  @Operation(summary = "Analyze release issues using base JQL merged with optional additional JQL")
+  public ResponseEntity<ApiResponse<AnalyticsResponse>> analyzeReleaseIssues(
+      @PathVariable String podId,
+      @PathVariable String releaseId,
+      @RequestBody(required = false) IssueSearchReleaseRequest request) {
+    return ResponseEntity.ok(ApiResponse.ok(
+        issueSearchService.analyzeRelease(podId, releaseId, request)));
   }
 }

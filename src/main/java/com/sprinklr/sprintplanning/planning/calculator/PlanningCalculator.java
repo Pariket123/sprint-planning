@@ -1,8 +1,9 @@
 package com.sprinklr.sprintplanning.planning.calculator;
 
 import com.sprinklr.sprintplanning.common.enums.Domain;
-import com.sprinklr.sprintplanning.common.enums.StatusCategory;
+import com.sprinklr.sprintplanning.common.model.DomainAllocation;
 import com.sprinklr.sprintplanning.common.model.IssueView;
+import com.sprinklr.sprintplanning.common.util.IssueAllocationHelper;
 import com.sprinklr.sprintplanning.planning.config.PlanningProperties;
 import com.sprinklr.sprintplanning.planning.dto.CapacityRiskStatus;
 import com.sprinklr.sprintplanning.planning.dto.DomainPlanningMetricsDto;
@@ -11,7 +12,7 @@ import com.sprinklr.sprintplanning.planning.dto.PlanningValidationResultDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningWarningCode;
 import com.sprinklr.sprintplanning.planning.dto.PlanningWarningDto;
 import com.sprinklr.sprintplanning.planning.dto.RiskLevel;
-import com.sprinklr.sprintplanning.planning.model.DomainCapacity;
+import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
 import com.sprinklr.sprintplanning.planning.model.LeaveEntry;
 import com.sprinklr.sprintplanning.planning.model.LeaveType;
 import org.springframework.stereotype.Component;
@@ -44,13 +45,15 @@ public class PlanningCalculator {
     Set<Domain> domains = discoverDomainsFromIssues(previousSprintIssues);
     Map<Domain, Double> rollover = initDomainMap(domains);
     for (IssueView issue : nullSafeIssues(previousSprintIssues)) {
-      if (issue.statusCategory() == StatusCategory.DONE) {
-        continue;
+      for (DomainAllocation allocation : IssueAllocationHelper.effectiveAllocations(issue)) {
+        if (allocation.completed()) {
+          continue;
+        }
+        if (!isPlanningDomain(allocation.domain())) {
+          continue;
+        }
+        rollover.merge(allocation.domain(), allocation.storyPoints(), Double::sum);
       }
-      if (!isPlanningDomain(issue.domain())) {
-        continue;
-      }
-      rollover.merge(issue.domain(), storyPointsOrZero(issue.storyPoints()), Double::sum);
     }
     return rollover;
   }
@@ -204,7 +207,7 @@ public class PlanningCalculator {
   }
 
   private Map<Domain, Double> calculateAvailableCapacity(
-      List<DomainCapacity> capacity,
+      List<PersonCapacity> capacity,
       List<LeaveEntry> leaves,
       LocalDate sprintStart,
       LocalDate sprintEnd,
@@ -213,7 +216,7 @@ public class PlanningCalculator {
     Map<Domain, Double> available = initDomainMap(planningDomains);
 
     if (capacity != null) {
-      for (DomainCapacity entry : capacity) {
+      for (PersonCapacity entry : capacity) {
         if (entry == null || !isPlanningDomain(entry.getDomain())) {
           continue;
         }
@@ -221,13 +224,8 @@ public class PlanningCalculator {
           planningDomains.add(entry.getDomain());
           available.put(entry.getDomain(), 0.0);
         }
-        double memberDays = entry.getHeadcount()
-            * (entry.getBandwidthPercent() / 100.0)
-            * workingDays;
-        if (entry.getManualAdjustment() != null) {
-          memberDays += entry.getManualAdjustment();
-        }
-        available.put(entry.getDomain(), memberDays);
+        double memberDays = (entry.getBandwidthPercent() / 100.0) * workingDays;
+        available.merge(entry.getDomain(), memberDays, Double::sum);
       }
     }
 
@@ -237,12 +235,17 @@ public class PlanningCalculator {
           continue;
         }
         int leaveDays = countOverlappingBusinessDays(leave.getStartDate(), leave.getEndDate(), sprintStart, sprintEnd);
+        if (leaveDays <= 0) {
+          continue;
+        }
+        double bandwidthPercent = resolveLeaveBandwidth(leave, capacity);
+        double deduction = leaveDays * (bandwidthPercent / 100.0);
         if (leave.getDomain() == null) {
           for (Domain domain : planningDomains) {
-            available.put(domain, available.get(domain) - leaveDays);
+            available.put(domain, available.get(domain) - deduction);
           }
         } else if (isPlanningDomain(leave.getDomain())) {
-          available.put(leave.getDomain(), available.getOrDefault(leave.getDomain(), 0.0) - leaveDays);
+          available.merge(leave.getDomain(), -deduction, Double::sum);
         }
       }
     }
@@ -253,17 +256,31 @@ public class PlanningCalculator {
     return available;
   }
 
+  private double resolveLeaveBandwidth(LeaveEntry leave, List<PersonCapacity> capacity) {
+    if (leave.getPersonName() != null && !leave.getPersonName().isBlank() && capacity != null) {
+      for (PersonCapacity person : capacity) {
+        if (person != null
+            && leave.getPersonName().equalsIgnoreCase(person.getPersonName())) {
+          return person.getBandwidthPercent();
+        }
+      }
+    }
+    return 100.0;
+  }
+
   private Map<Domain, SelectionMetrics> calculateIssueMetrics(List<IssueView> issues, Set<Domain> planningDomains) {
     Map<Domain, SelectionMetrics> metrics = new EnumMap<>(Domain.class);
     for (Domain domain : planningDomains) {
       metrics.put(domain, new SelectionMetrics());
     }
     for (IssueView issue : nullSafeIssues(issues)) {
-      if (!isPlanningDomain(issue.domain())) {
-        continue;
+      for (DomainAllocation allocation : IssueAllocationHelper.effectiveAllocations(issue)) {
+        if (!isPlanningDomain(allocation.domain())) {
+          continue;
+        }
+        metrics.computeIfAbsent(allocation.domain(), ignored -> new SelectionMetrics())
+            .add(allocation.storyPoints());
       }
-      metrics.computeIfAbsent(issue.domain(), ignored -> new SelectionMetrics())
-          .add(storyPointsOrZero(issue.storyPoints()));
     }
     return metrics;
   }
@@ -288,11 +305,11 @@ public class PlanningCalculator {
     return domains;
   }
 
-  private void addDomainsFromCapacity(Set<Domain> domains, List<DomainCapacity> capacity) {
+  private void addDomainsFromCapacity(Set<Domain> domains, List<PersonCapacity> capacity) {
     if (capacity == null) {
       return;
     }
-    for (DomainCapacity entry : capacity) {
+    for (PersonCapacity entry : capacity) {
       if (entry != null && isPlanningDomain(entry.getDomain())) {
         domains.add(entry.getDomain());
       }
@@ -312,8 +329,10 @@ public class PlanningCalculator {
 
   private void addDomainsFromIssues(Set<Domain> domains, List<IssueView> issues) {
     for (IssueView issue : nullSafeIssues(issues)) {
-      if (isPlanningDomain(issue.domain())) {
-        domains.add(issue.domain());
+      for (DomainAllocation allocation : IssueAllocationHelper.effectiveAllocations(issue)) {
+        if (isPlanningDomain(allocation.domain())) {
+          domains.add(allocation.domain());
+        }
       }
     }
   }

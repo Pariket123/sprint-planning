@@ -26,7 +26,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -53,8 +52,11 @@ class RolloverServiceImplTest {
 
   @BeforeEach
   void setUp() {
+    SprintPlanningDocumentAccessor planningDocumentAccessor =
+        new SprintPlanningDocumentAccessor(sprintPlanningRepository);
     rolloverService = new RolloverServiceImpl(
-        teamService, jiraClient, jiraConfigMapper, sprintPlanningRepository, new RolloverMapper());
+        teamService, jiraClient, jiraConfigMapper, sprintPlanningRepository,
+        planningDocumentAccessor, new RolloverMapper());
   }
 
   @Test
@@ -65,8 +67,8 @@ class RolloverServiceImplTest {
         .thenReturn(List.of(ticket("CARE-105613", 2.0, Domain.DEV)));
 
     SprintPlanningDocument fromPlanning = planningDoc("pod-1", 12L);
-    when(sprintPlanningRepository.findByPodIdAndJiraSprintId("pod-1", 12L))
-        .thenReturn(Optional.of(fromPlanning));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 12L))
+        .thenReturn(List.of(fromPlanning));
     when(sprintPlanningRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
     RolloverIssueDto result = rolloverService.recordRollover(
@@ -81,7 +83,7 @@ class RolloverServiceImplTest {
     assertThat(fromPlanning.getRolloverIssues()).hasSize(1);
 
     verify(jiraClient, never()).moveIssuesToSprint(any(), any());
-    verify(sprintPlanningRepository, never()).findByPodIdAndJiraSprintId("pod-1", 13L);
+    verify(sprintPlanningRepository, never()).findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 13L);
   }
 
   @Test
@@ -93,10 +95,10 @@ class RolloverServiceImplTest {
 
     SprintPlanningDocument fromPlanning = planningDoc("pod-1", 12L);
     SprintPlanningDocument toPlanning = planningDoc("pod-1", 13L);
-    when(sprintPlanningRepository.findByPodIdAndJiraSprintId("pod-1", 12L))
-        .thenReturn(Optional.of(fromPlanning));
-    when(sprintPlanningRepository.findByPodIdAndJiraSprintId("pod-1", 13L))
-        .thenReturn(Optional.of(toPlanning));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 12L))
+        .thenReturn(List.of(fromPlanning));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 13L))
+        .thenReturn(List.of(toPlanning));
     when(sprintPlanningRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
     rolloverService.recordRollover(
@@ -135,8 +137,8 @@ class RolloverServiceImplTest {
     outgoing.setToSprintId(13L);
     planning.getRolloverIssues().add(outgoing);
 
-    when(sprintPlanningRepository.findByPodIdAndJiraSprintId("pod-1", 12L))
-        .thenReturn(Optional.of(planning));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 12L))
+        .thenReturn(List.of(planning));
 
     List<RolloverIssueDto> outgoingRollovers = rolloverService.getOutgoingRollovers("pod-1", 12L);
 
@@ -172,7 +174,7 @@ class RolloverServiceImplTest {
   }
 
   private JiraFieldConfig fieldConfig() {
-    return new JiraFieldConfig("sp", "domain", Map.of(), List.of("Bug"), List.of("Story"));
+    return new JiraFieldConfig("sp", "domain", "customfield_10020", Map.of(), List.of("Bug"), List.of("Story"));
   }
 
   private SprintPlanningDocument planningDoc(String podId, Long sprintId) {
@@ -186,6 +188,6 @@ class RolloverServiceImplTest {
   private TicketViewDto ticket(String key, double storyPoints, Domain domain) {
     return new TicketViewDto(
         key, "Summary", "Story", "In Progress", StatusCategory.IN_PROGRESS,
-        storyPoints, domain, null, null, "High", List.of(), List.of(), List.of(), List.of());
+        storyPoints, domain, List.of(), null, null, "High", List.of(), List.of(), List.of(), List.of());
   }
 }

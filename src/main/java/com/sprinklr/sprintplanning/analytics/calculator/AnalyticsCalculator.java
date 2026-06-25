@@ -8,8 +8,10 @@ import com.sprinklr.sprintplanning.analytics.dto.IssueCountsDto;
 import com.sprinklr.sprintplanning.analytics.dto.StatusDistributionItemDto;
 import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.enums.StatusCategory;
+import com.sprinklr.sprintplanning.common.model.DomainAllocation;
 import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.common.model.JiraFieldConfig;
+import com.sprinklr.sprintplanning.common.util.IssueAllocationHelper;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -39,12 +41,13 @@ public class AnalyticsCalculator {
     }
 
     for (IssueView issue : issues) {
-      double points = storyPointsOrZero(issue.storyPoints());
+      double points = IssueAllocationHelper.totalStoryPoints(issue);
+      double issueCompletedPoints = IssueAllocationHelper.completedStoryPoints(issue);
       totalStoryPoints += points;
+      completedStoryPoints += issueCompletedPoints;
 
-      boolean completed = issue.statusCategory() == StatusCategory.DONE;
+      boolean completed = IssueAllocationHelper.isIssueCompleted(issue);
       if (completed) {
-        completedStoryPoints += points;
         completedCount++;
       }
 
@@ -59,11 +62,18 @@ public class AnalyticsCalculator {
           .computeIfAbsent(statusKey, key -> new StatusBucket(issue.status(), issue.statusCategory()))
           .add(points);
 
-      domainBuckets.get(issue.domain()).add(points, completed);
+      for (DomainAllocation allocation : IssueAllocationHelper.effectiveAllocations(issue)) {
+        if (allocation.domain() == null || allocation.domain() == Domain.UNKNOWN) {
+          continue;
+        }
+        boolean allocationCompleted = IssueAllocationHelper.isAllocationCompleted(issue, allocation);
+        domainBuckets.get(allocation.domain()).add(allocation.storyPoints(), allocationCompleted);
+      }
     }
 
     int total = issues.size();
     int remaining = total - completedCount;
+    int totalDomainTouches = domainBuckets.values().stream().mapToInt(metrics -> metrics.count).sum();
 
     return new AnalyticsResponse(
         jiraSprintId,
@@ -77,7 +87,7 @@ public class AnalyticsCalculator {
             features.toDto(),
             other.toDto()),
         toStatusDistribution(statusBuckets),
-        toDomainBreakdown(domainBuckets, total, totalStoryPoints));
+        toDomainBreakdown(domainBuckets, totalDomainTouches, totalStoryPoints));
   }
 
   private IssueCategory classifyIssue(IssueView issue, JiraFieldConfig fieldConfig) {
@@ -103,7 +113,7 @@ public class AnalyticsCalculator {
   }
 
   private List<DomainBreakdownItemDto> toDomainBreakdown(
-      Map<Domain, CategoryMetrics> buckets, int totalIssues, double totalStoryPoints) {
+      Map<Domain, CategoryMetrics> buckets, int totalDomainTouches, double totalStoryPoints) {
     List<DomainBreakdownItemDto> breakdown = new ArrayList<>();
     for (Domain domain : Domain.values()) {
       CategoryMetrics metrics = buckets.get(domain);
@@ -112,7 +122,7 @@ public class AnalyticsCalculator {
             domain,
             metrics.count,
             round(metrics.storyPoints),
-            percentage(metrics.count, totalIssues),
+            percentage(metrics.count, totalDomainTouches),
             percentage(metrics.storyPoints, totalStoryPoints),
             metrics.completedCount,
             round(metrics.completedStoryPoints),

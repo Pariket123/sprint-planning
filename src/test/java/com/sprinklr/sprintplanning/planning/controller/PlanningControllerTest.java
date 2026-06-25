@@ -12,7 +12,7 @@ import com.sprinklr.sprintplanning.planning.dto.PlanningValidationResultDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningViewDto;
 import com.sprinklr.sprintplanning.planning.dto.RiskLevel;
 import com.sprinklr.sprintplanning.planning.mapper.PlanningMapper;
-import com.sprinklr.sprintplanning.planning.model.DomainCapacity;
+import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
 import com.sprinklr.sprintplanning.planning.model.SprintPlanningDocument;
 import com.sprinklr.sprintplanning.planning.service.PlanningService;
 import org.junit.jupiter.api.Test;
@@ -80,9 +80,9 @@ class PlanningControllerTest {
     document.setId("plan-1");
     document.setPodId("pod-1");
     document.setJiraSprintId(10L);
-    DomainCapacity capacity = new DomainCapacity();
+    PersonCapacity capacity = new PersonCapacity();
+    capacity.setPersonName("Alice");
     capacity.setDomain(Domain.DEV);
-    capacity.setHeadcount(2);
     capacity.setBandwidthPercent(100);
     document.setCapacity(List.of(capacity));
 
@@ -98,8 +98,8 @@ class PlanningControllerTest {
                 {
                   "capacity": [
                     {
+                      "personName": "Alice",
                       "domain": "DEV",
-                      "headcount": 2,
                       "bandwidthPercent": 100
                     }
                   ]
@@ -107,7 +107,7 @@ class PlanningControllerTest {
                 """))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
-        .andExpect(jsonPath("$.data.capacity[0].headcount").value(2));
+        .andExpect(jsonPath("$.data.capacity[0].personName").value("Alice"));
   }
 
   @Test

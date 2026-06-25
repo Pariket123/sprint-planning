@@ -7,9 +7,9 @@ import com.sprinklr.sprintplanning.planning.config.PlanningProperties;
 import com.sprinklr.sprintplanning.planning.dto.CapacityRiskStatus;
 import com.sprinklr.sprintplanning.planning.dto.PlanningWarningCode;
 import com.sprinklr.sprintplanning.planning.dto.RiskLevel;
-import com.sprinklr.sprintplanning.planning.model.DomainCapacity;
 import com.sprinklr.sprintplanning.planning.model.LeaveEntry;
 import com.sprinklr.sprintplanning.planning.model.LeaveType;
+import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -35,12 +35,14 @@ class PlanningCalculatorTest {
 
   @Test
   void calculatesAvailableCapacityWithLeavesAndHolidays() {
-    List<DomainCapacity> capacity = List.of(devCapacity(2, 100.0));
+    List<PersonCapacity> capacity = List.of(
+        personCapacity("Dev 1", Domain.DEV, 100.0),
+        personCapacity("Dev 2", Domain.DEV, 100.0));
     List<LeaveEntry> leaves = List.of(
-        leave(LocalDate.of(2026, 6, 10), LocalDate.of(2026, 6, 10), LeaveType.HOLIDAY, null),
-        leave(LocalDate.of(2026, 6, 11), LocalDate.of(2026, 6, 11), LeaveType.LEAVE, Domain.DEV));
+        leave("Dev 2", LocalDate.of(2026, 6, 10), LocalDate.of(2026, 6, 10), LeaveType.HOLIDAY, null),
+        leave("Dev 2", LocalDate.of(2026, 6, 11), LocalDate.of(2026, 6, 11), LeaveType.LEAVE, Domain.DEV));
 
-  // Mon 8 - Fri 19 June 2026 = 10 business days; minus 1 holiday = 9 working days; minus 1 dev leave
+    // Mon 8 - Fri 19 June 2026 = 10 business days; minus 1 holiday = 9 working days; minus 1 dev leave
     PlanningCalculationInput input = new PlanningCalculationInput(
         10L,
         Instant.parse("2026-06-08T00:00:00Z"),
@@ -68,6 +70,32 @@ class PlanningCalculatorTest {
   }
 
   @Test
+  void aggregatesPersonCapacityByDomain() {
+    List<PersonCapacity> capacity = List.of(
+        personCapacity("Alice", Domain.DEV, 80.0),
+        personCapacity("Bob", Domain.DEV, 100.0),
+        personCapacity("Carol", Domain.QA, 100.0));
+
+    PlanningCalculationInput input = new PlanningCalculationInput(
+        16L,
+        Instant.parse("2026-06-08T00:00:00Z"),
+        Instant.parse("2026-06-12T00:00:00Z"),
+        capacity,
+        List.of(),
+        Map.of(),
+        Map.of(),
+        List.of(),
+        List.of());
+
+    var summary = calculator.calculateSummary(input);
+
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.DEV).first()
+        .satisfies(dev -> assertThat(dev.availableCapacity()).isEqualTo(9.0));
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.QA).first()
+        .satisfies(qa -> assertThat(qa.availableCapacity()).isEqualTo(5.0));
+  }
+
+  @Test
   void computesRolloverFromIncompletePreviousSprintIssues() {
     List<IssueView> previousIssues = List.of(
         new IssueView("WFM-1", "Done", Domain.DEV, 3.0, "Story", "Done", StatusCategory.DONE),
@@ -90,9 +118,9 @@ class PlanningCalculatorTest {
 
   @Test
   void validatesOverCapacityAndDomainImbalance() {
-    List<DomainCapacity> capacity = List.of(
-        devCapacity(1, 100.0),
-        qaCapacity(1, 100.0));
+    List<PersonCapacity> capacity = List.of(
+        personCapacity("Dev", Domain.DEV, 100.0),
+        personCapacity("QA", Domain.QA, 100.0));
 
     PlanningCalculationInput input = new PlanningCalculationInput(
         11L,
@@ -117,7 +145,9 @@ class PlanningCalculatorTest {
 
   @Test
   void calculatesCommittedCapacityRiskMetrics() {
-    List<DomainCapacity> capacity = List.of(beCapacity(2, 100.0));
+    List<PersonCapacity> capacity = List.of(
+        personCapacity("BE 1", Domain.BE, 100.0),
+        personCapacity("BE 2", Domain.BE, 100.0));
 
     PlanningCalculationInput input = new PlanningCalculationInput(
         12L,
@@ -147,7 +177,7 @@ class PlanningCalculatorTest {
         13L,
         Instant.parse("2026-06-08T00:00:00Z"),
         Instant.parse("2026-06-12T00:00:00Z"),
-        List.of(productCapacity(1, 100.0)),
+        List.of(personCapacity("PM", Domain.PRODUCT, 100.0)),
         List.of(),
         Map.of(),
         Map.of(),
@@ -162,7 +192,7 @@ class PlanningCalculatorTest {
 
   @Test
   void validatesCommittedOverCapacity() {
-    List<DomainCapacity> capacity = List.of(devCapacity(1, 100.0));
+    List<PersonCapacity> capacity = List.of(personCapacity("Dev", Domain.DEV, 100.0));
 
     PlanningCalculationInput input = new PlanningCalculationInput(
         14L,
@@ -186,7 +216,7 @@ class PlanningCalculatorTest {
 
   @Test
   void calculatesNearCapacityRiskWhenCommittedUtilizationIsHigh() {
-    List<DomainCapacity> capacity = List.of(devCapacity(1, 100.0));
+    List<PersonCapacity> capacity = List.of(personCapacity("Dev", Domain.DEV, 100.0));
 
     PlanningCalculationInput input = new PlanningCalculationInput(
         15L,
@@ -215,40 +245,22 @@ class PlanningCalculatorTest {
         .isEqualTo(5);
   }
 
-  private static DomainCapacity devCapacity(int headcount, double bandwidth) {
-    DomainCapacity capacity = new DomainCapacity();
-    capacity.setDomain(Domain.DEV);
-    capacity.setHeadcount(headcount);
+  private static PersonCapacity personCapacity(String name, Domain domain, double bandwidth) {
+    PersonCapacity capacity = new PersonCapacity();
+    capacity.setPersonName(name);
+    capacity.setDomain(domain);
     capacity.setBandwidthPercent(bandwidth);
     return capacity;
   }
 
-  private static DomainCapacity qaCapacity(int headcount, double bandwidth) {
-    DomainCapacity capacity = new DomainCapacity();
-    capacity.setDomain(Domain.QA);
-    capacity.setHeadcount(headcount);
-    capacity.setBandwidthPercent(bandwidth);
-    return capacity;
-  }
-
-  private static DomainCapacity beCapacity(int headcount, double bandwidth) {
-    DomainCapacity capacity = new DomainCapacity();
-    capacity.setDomain(Domain.BE);
-    capacity.setHeadcount(headcount);
-    capacity.setBandwidthPercent(bandwidth);
-    return capacity;
-  }
-
-  private static DomainCapacity productCapacity(int headcount, double bandwidth) {
-    DomainCapacity capacity = new DomainCapacity();
-    capacity.setDomain(Domain.PRODUCT);
-    capacity.setHeadcount(headcount);
-    capacity.setBandwidthPercent(bandwidth);
-    return capacity;
-  }
-
-  private static LeaveEntry leave(LocalDate start, LocalDate end, LeaveType type, Domain domain) {
+  private static LeaveEntry leave(
+      String personName,
+      LocalDate start,
+      LocalDate end,
+      LeaveType type,
+      Domain domain) {
     LeaveEntry entry = new LeaveEntry();
+    entry.setPersonName(personName);
     entry.setStartDate(start);
     entry.setEndDate(end);
     entry.setType(type);

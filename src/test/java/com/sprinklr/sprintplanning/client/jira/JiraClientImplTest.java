@@ -45,6 +45,7 @@ class JiraClientImplTest {
         jiraRestClient, jiraSprintMapper, jiraIssueMapper, jiraTicketMapper);
     fieldConfig = new JiraFieldConfig(
         "customfield_10016",
+        "customfield_10109",
         "customfield_10020",
         Map.of("DEV", "Dev"),
         List.of("Bug"),
@@ -64,7 +65,7 @@ class JiraClientImplTest {
     page.setIssues(List.of(issue));
 
     TicketViewDto ticket = new TicketViewDto(
-        "WFM-1", null, null, null, null, null, null, null, null, null, null, null, null, null);
+        "WFM-1", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
     when(jiraRestClient.searchIssues(eq("project = WFM"), anyList(), eq(0), eq(50))).thenReturn(page);
     when(jiraTicketMapper.toTicketViews(List.of(issue), fieldConfig)).thenReturn(List.of(ticket));
@@ -83,7 +84,7 @@ class JiraClientImplTest {
     JiraIssueDto issue = new JiraIssueDto();
     issue.setKey("CARE-105613");
     TicketViewDto ticket = new TicketViewDto(
-        "CARE-105613", null, null, null, null, null, null, null, null, null, null, null, null, null);
+        "CARE-105613", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
     when(jiraRestClient.getIssuesByKeys(eq(List.of("CARE-105613", "CARE-105614")), anyList()))
         .thenReturn(List.of(issue));
@@ -97,6 +98,45 @@ class JiraClientImplTest {
     ArgumentCaptor<List<String>> keysCaptor = ArgumentCaptor.forClass(List.class);
     verify(jiraRestClient).getIssuesByKeys(keysCaptor.capture(), anyList());
     assertThat(keysCaptor.getValue()).containsExactly("CARE-105613", "CARE-105614");
+  }
+
+  @Test
+  void getIssuesByKeysRequestsSprintFieldAlongWithConfiguredCustomFields() {
+    JiraIssueDto issue = new JiraIssueDto();
+    issue.setKey("CARE-105613");
+    TicketViewDto ticket = new TicketViewDto(
+        "CARE-105613", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+
+    when(jiraRestClient.getIssuesByKeys(eq(List.of("CARE-105613")), anyList()))
+        .thenReturn(List.of(issue));
+    when(jiraTicketMapper.toTicketViews(List.of(issue), fieldConfig)).thenReturn(List.of(ticket));
+
+    jiraClient.getIssuesByKeys(List.of("CARE-105613"), fieldConfig);
+
+    ArgumentCaptor<List<String>> fieldsCaptor = ArgumentCaptor.forClass(List.class);
+    verify(jiraRestClient).getIssuesByKeys(eq(List.of("CARE-105613")), fieldsCaptor.capture());
+    assertThat(fieldsCaptor.getValue())
+        .contains("customfield_10016", "customfield_10109", "customfield_10020");
+  }
+
+  @Test
+  void getIssuesByKeysUsesDefaultSprintFieldWhenConfigOmitsIt() {
+    JiraFieldConfig configWithoutSprint = new JiraFieldConfig(
+        "customfield_10016",
+        "customfield_10109",
+        null,
+        Map.of("DEV", "Dev"),
+        List.of("Bug"),
+        List.of("Story"));
+
+    when(jiraRestClient.getIssuesByKeys(eq(List.of("WFM-1")), anyList())).thenReturn(List.of());
+    when(jiraTicketMapper.toTicketViews(eq(List.of()), eq(configWithoutSprint))).thenReturn(List.of());
+
+    jiraClient.getIssuesByKeys(List.of("WFM-1"), configWithoutSprint);
+
+    ArgumentCaptor<List<String>> fieldsCaptor = ArgumentCaptor.forClass(List.class);
+    verify(jiraRestClient).getIssuesByKeys(eq(List.of("WFM-1")), fieldsCaptor.capture());
+    assertThat(fieldsCaptor.getValue()).contains(JiraClientImpl.DEFAULT_SPRINT_FIELD_ID);
   }
 
   @Test

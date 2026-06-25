@@ -1,10 +1,13 @@
 package com.sprinklr.sprintplanning.search.service;
 
+import com.sprinklr.sprintplanning.analytics.calculator.AnalyticsCalculator;
+import com.sprinklr.sprintplanning.analytics.dto.AnalyticsResponse;
 import com.sprinklr.sprintplanning.client.jira.JiraClient;
 import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.enums.StatusCategory;
 import com.sprinklr.sprintplanning.common.exception.ResourceNotFoundException;
 import com.sprinklr.sprintplanning.common.model.IssueSearchPage;
+import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.common.model.JiraFieldConfig;
 import com.sprinklr.sprintplanning.release.model.ReleaseBasicFilters;
 import com.sprinklr.sprintplanning.release.model.ReleaseConfigDocument;
@@ -12,8 +15,10 @@ import com.sprinklr.sprintplanning.release.service.ReleaseService;
 import com.sprinklr.sprintplanning.search.FilterMergeHelper;
 import com.sprinklr.sprintplanning.search.dto.IssueSearchFilters;
 import com.sprinklr.sprintplanning.search.dto.IssueSearchPageDto;
+import com.sprinklr.sprintplanning.search.dto.IssueSearchReleaseRequest;
 import com.sprinklr.sprintplanning.search.dto.TicketViewDto;
 import com.sprinklr.sprintplanning.search.jql.JqlBuilder;
+import com.sprinklr.sprintplanning.search.jql.JqlMergeHelper;
 import com.sprinklr.sprintplanning.team.mapper.JiraConfigMapper;
 import com.sprinklr.sprintplanning.team.model.PodDocument;
 import com.sprinklr.sprintplanning.team.model.PodJiraConfig;
@@ -56,7 +61,9 @@ class IssueSearchServiceImplTest {
         jiraClient,
         jiraConfigMapper,
         new JqlBuilder(),
-        new FilterMergeHelper());
+        new JqlMergeHelper(),
+        new FilterMergeHelper(),
+        new AnalyticsCalculator());
   }
 
   @Test
@@ -84,13 +91,9 @@ class IssueSearchServiceImplTest {
   }
 
   @Test
-  void searchInReleaseAppliesUserProvidedFixVersionIncludes() {
-    ReleaseConfigDocument release = new ReleaseConfigDocument();
-    release.setId("release-1");
-    release.setPodId("pod-1");
-    release.setTeamId("team-1");
-    release.setFixVersionIncludes(List.of("Q3 2026", "Release-12.4"));
-    release.setBasicFilters(new ReleaseBasicFilters());
+  void searchInReleaseUsesBaseJqlOnlyWhenAdditionalIsEmpty() {
+    ReleaseConfigDocument release = releaseWithBaseJql(
+        "project = CARE AND fixVersion = \"Q3 2026\"");
 
     PodDocument pod = podWithProjects("pod-1", List.of("CARE"));
     JiraFieldConfig fieldConfig = fieldConfig();
@@ -102,23 +105,49 @@ class IssueSearchServiceImplTest {
         .thenReturn(searchPage(ticket("CARE-1")));
 
     IssueSearchPageDto result = issueSearchService.searchInRelease(
-        "pod-1", "release-1", IssueSearchFilters.empty(), 0, 25);
+        "pod-1", "release-1", new IssueSearchReleaseRequest(null), 0, 25);
 
     assertThat(result.issues()).hasSize(1);
     verify(jiraClient).searchIssues(
-        eq("project IN (\"CARE\") AND fixVersion IN (\"Q3 2026\", \"Release-12.4\") ORDER BY updated DESC"),
+        eq("project = CARE AND fixVersion = \"Q3 2026\""),
         eq(fieldConfig),
         eq(0),
         eq(25));
   }
 
   @Test
-  void searchInReleaseAppliesUserProvidedFixVersionExcludes() {
+  void searchInReleaseMergesBaseAndAdditionalJqlWithAnd() {
+    ReleaseConfigDocument release = releaseWithBaseJql("project = SCRUM AND fixVersion = \"Q3\"");
+
+    PodDocument pod = podWithProjects("pod-1", List.of("SCRUM"));
+    JiraFieldConfig fieldConfig = fieldConfig();
+
+    when(teamService.getActivePodDocument("pod-1")).thenReturn(pod);
+    when(releaseService.getActiveReleaseDocument("pod-1", "release-1")).thenReturn(release);
+    when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig);
+    when(jiraClient.searchIssues(any(), eq(fieldConfig), eq(0), eq(25)))
+        .thenReturn(searchPage(ticket("SCRUM-1")));
+
+    issueSearchService.searchInRelease(
+        "pod-1",
+        "release-1",
+        new IssueSearchReleaseRequest("status = \"In Progress\""),
+        0,
+        25);
+
+    verify(jiraClient).searchIssues(
+        eq("(project = SCRUM AND fixVersion = \"Q3\") AND (status = \"In Progress\")"),
+        eq(fieldConfig),
+        eq(0),
+        eq(25));
+  }
+
+  @Test
+  void searchInReleaseFallsBackToLegacyFiltersWhenBaseJqlMissing() {
     ReleaseConfigDocument release = new ReleaseConfigDocument();
     release.setId("release-1");
     release.setPodId("pod-1");
-    release.setTeamId("team-1");
-    release.setFixVersionExcludes(List.of("Cancelled", "Won't Fix"));
+    release.setFixVersionIncludes(List.of("Q3 2026"));
     release.setBasicFilters(new ReleaseBasicFilters());
 
     PodDocument pod = podWithProjects("pod-1", List.of("CARE"));
@@ -128,37 +157,16 @@ class IssueSearchServiceImplTest {
     when(releaseService.getActiveReleaseDocument("pod-1", "release-1")).thenReturn(release);
     when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig);
     when(jiraClient.searchIssues(any(), eq(fieldConfig), eq(0), eq(25)))
-        .thenReturn(searchPage(ticket("CARE-2")));
+        .thenReturn(searchPage(ticket("CARE-1")));
 
-    issueSearchService.searchInRelease("pod-1", "release-1", IssueSearchFilters.empty(), 0, 25);
+    issueSearchService.searchInRelease(
+        "pod-1", "release-1", new IssueSearchReleaseRequest(null), 0, 25);
 
     verify(jiraClient).searchIssues(
-        eq("project IN (\"CARE\") AND fixVersion NOT IN (\"Cancelled\", \"Won't Fix\") ORDER BY updated DESC"),
+        eq("project IN (\"CARE\") AND fixVersion IN (\"Q3 2026\") ORDER BY updated DESC"),
         eq(fieldConfig),
         eq(0),
         eq(25));
-  }
-
-  @Test
-  void searchInReleaseReturnsEmptyWhenMergedFiltersConflict() {
-    ReleaseConfigDocument release = new ReleaseConfigDocument();
-    release.setId("release-1");
-    release.setPodId("pod-1");
-    release.setFixVersionIncludes(List.of("Q3 2026"));
-    release.setBasicFilters(new ReleaseBasicFilters());
-
-    when(teamService.getActivePodDocument("pod-1")).thenReturn(podWithProjects("pod-1", List.of("CARE")));
-    when(releaseService.getActiveReleaseDocument("pod-1", "release-1")).thenReturn(release);
-
-    IssueSearchFilters request = new IssueSearchFilters(
-        null, null, null, null, List.of("Q4 2026"), null, null, null, null, null, null, null);
-
-    IssueSearchPageDto result = issueSearchService.searchInRelease(
-        "pod-1", "release-1", request, 0, 50);
-
-    assertThat(result.issues()).isEmpty();
-    assertThat(result.total()).isZero();
-    assertThat(result.last()).isTrue();
   }
 
   @Test
@@ -168,8 +176,45 @@ class IssueSearchServiceImplTest {
         .thenThrow(new ResourceNotFoundException("RELEASE_NOT_FOUND", "Release not found: missing"));
 
     assertThatThrownBy(() -> issueSearchService.searchInRelease(
-        "pod-1", "missing", IssueSearchFilters.empty(), 0, 50))
+        "pod-1", "missing", new IssueSearchReleaseRequest(null), 0, 50))
         .isInstanceOf(ResourceNotFoundException.class);
+  }
+
+  @Test
+  void analyzeReleaseUsesMergedJqlAndReturnsDomainBreakdown() {
+    ReleaseConfigDocument release = releaseWithBaseJql("project = SCRUM AND fixVersion = \"Q3\"");
+    release.setName("Q3 Release");
+
+    PodDocument pod = podWithProjects("pod-1", List.of("SCRUM"));
+    JiraFieldConfig fieldConfig = fieldConfig();
+
+    when(teamService.getActivePodDocument("pod-1")).thenReturn(pod);
+    when(releaseService.getActiveReleaseDocument("pod-1", "release-1")).thenReturn(release);
+    when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig);
+    when(jiraClient.searchAllIssues(any(), eq(fieldConfig)))
+        .thenReturn(List.of(
+            new IssueView("SCRUM-1", "Done", Domain.DEV, 5.0, "Story", "Done", StatusCategory.DONE),
+            new IssueView("SCRUM-2", "Todo", Domain.QA, 3.0, "Bug", "To Do", StatusCategory.TODO)));
+
+    AnalyticsResponse result = issueSearchService.analyzeRelease(
+        "pod-1",
+        "release-1",
+        new IssueSearchReleaseRequest("status != Done"));
+
+    assertThat(result.sprintName()).isEqualTo("Q3 Release");
+    assertThat(result.issueCounts().total()).isEqualTo(2);
+    assertThat(result.domainBreakdown()).extracting("domain").containsExactly(Domain.DEV, Domain.QA);
+    verify(jiraClient).searchAllIssues(
+        eq("(project = SCRUM AND fixVersion = \"Q3\") AND (status != Done)"),
+        eq(fieldConfig));
+  }
+
+  private ReleaseConfigDocument releaseWithBaseJql(String baseJql) {
+    ReleaseConfigDocument release = new ReleaseConfigDocument();
+    release.setId("release-1");
+    release.setPodId("pod-1");
+    release.setBaseJql(baseJql);
+    return release;
   }
 
   private PodDocument podWithProjects(String podId, List<String> projectKeys) {
@@ -184,6 +229,7 @@ class IssueSearchServiceImplTest {
   private JiraFieldConfig fieldConfig() {
     return new JiraFieldConfig(
         "customfield_10016",
+        "customfield_10109",
         "customfield_10020",
         Map.of("BE", "Backend"),
         List.of("Bug"),
@@ -197,6 +243,6 @@ class IssueSearchServiceImplTest {
   private TicketViewDto ticket(String key) {
     return new TicketViewDto(
         key, "Summary", "Story", "To Do", StatusCategory.TODO,
-        3.0, Domain.DEV, null, null, "High", List.of(), List.of(), List.of(), List.of());
+        3.0, Domain.DEV, List.of(), null, null, "High", List.of(), List.of(), List.of(), List.of());
   }
 }

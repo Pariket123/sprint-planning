@@ -15,7 +15,7 @@ import com.sprinklr.sprintplanning.planning.dto.PlannedScopeDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningSummaryDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningViewDto;
 import com.sprinklr.sprintplanning.planning.dto.CapacityRiskStatus;
-import com.sprinklr.sprintplanning.planning.model.DomainCapacity;
+import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
 import com.sprinklr.sprintplanning.planning.model.OverrideAction;
 import com.sprinklr.sprintplanning.planning.model.PlanningOverride;
 import com.sprinklr.sprintplanning.planning.model.SprintPlanningDocument;
@@ -37,7 +37,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -69,9 +68,11 @@ class PlanningServiceImplTest {
     PlanningProperties properties = new PlanningProperties();
     PlanningCalculator calculator = new PlanningCalculator(properties);
     PlanningMapper planningMapper = Mappers.getMapper(PlanningMapper.class);
+    SprintPlanningDocumentAccessor planningDocumentAccessor =
+        new SprintPlanningDocumentAccessor(sprintPlanningRepository);
     planningService = new PlanningServiceImpl(
         teamService, jiraClient, jiraConfigMapper, sprintPlanningRepository,
-        calculator, planningMapper, rolloverService);
+        planningDocumentAccessor, calculator, planningMapper, rolloverService);
   }
 
   @Test
@@ -91,8 +92,8 @@ class PlanningServiceImplTest {
     include.setAction(OverrideAction.INCLUDE);
     planning.setOverrides(List.of(exclude, include));
 
-    when(sprintPlanningRepository.findByPodIdAndJiraSprintId("pod-1", 20L))
-        .thenReturn(Optional.of(planning));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 20L))
+        .thenReturn(List.of(planning));
     when(jiraClient.getSprintIssues(eq(20L), any())).thenReturn(List.of(
         new IssueView("WFM-1", "Excluded", Domain.DEV, 2.0, "Story", "To Do", StatusCategory.TODO),
         new IssueView("WFM-2", "Kept", Domain.QA, 3.0, "Story", "To Do", StatusCategory.TODO)));
@@ -110,8 +111,8 @@ class PlanningServiceImplTest {
     SprintPlanningDocument planning = new SprintPlanningDocument();
     planning.setPodId("pod-1");
     planning.setJiraSprintId(12L);
-    when(sprintPlanningRepository.findByPodIdAndJiraSprintId("pod-1", 12L))
-        .thenReturn(Optional.of(planning));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 12L))
+        .thenReturn(List.of(planning));
     when(sprintPlanningRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
     PlannedScopeDto scope = planningService.updatePlannedScope(
@@ -132,8 +133,8 @@ class PlanningServiceImplTest {
     planning.setPodId("pod-1");
     planning.setJiraSprintId(12L);
     planning.setPlannedIssueKeys(new ArrayList<>(List.of("CARE-105613", "CARE-105614")));
-    when(sprintPlanningRepository.findByPodIdAndJiraSprintId("pod-1", 12L))
-        .thenReturn(Optional.of(planning));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 12L))
+        .thenReturn(List.of(planning));
 
     when(jiraClient.getIssuesByKeys(eq(List.of("CARE-105613", "CARE-105614")), any()))
         .thenReturn(List.of(
@@ -152,6 +153,52 @@ class PlanningServiceImplTest {
   }
 
   @Test
+  void getPlannedIssuesDoesNotMarkBacklogIssuesAsRolledOverWhenNeverCommitted() {
+    PodDocument pod = podWithBoard(101L);
+    when(teamService.getActivePodDocument("pod-1")).thenReturn(pod);
+    when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig());
+
+    SprintPlanningDocument planning = new SprintPlanningDocument();
+    planning.setPodId("pod-1");
+    planning.setJiraSprintId(12L);
+    planning.setPlannedIssueKeys(new ArrayList<>(List.of("CARE-105615")));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 12L))
+        .thenReturn(List.of(planning));
+
+    when(jiraClient.getIssuesByKeys(eq(List.of("CARE-105615")), any()))
+        .thenReturn(List.of(ticket("CARE-105615", List.of())));
+
+    List<PlannedIssueViewDto> plannedIssues = planningService.getPlannedIssues("pod-1", 12L);
+
+    assertThat(plannedIssues).hasSize(1);
+    assertThat(plannedIssues.getFirst().currentSprintId()).isNull();
+    assertThat(plannedIssues.getFirst().rolledOver()).isFalse();
+  }
+
+  @Test
+  void getPlannedIssuesMarksCommittedBacklogIssuesAsRolledOver() {
+    PodDocument pod = podWithBoard(101L);
+    when(teamService.getActivePodDocument("pod-1")).thenReturn(pod);
+    when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig());
+
+    SprintPlanningDocument planning = new SprintPlanningDocument();
+    planning.setPodId("pod-1");
+    planning.setJiraSprintId(12L);
+    planning.setPlannedIssueKeys(new ArrayList<>(List.of("CARE-105615")));
+    planning.setCommittedIssueKeys(new ArrayList<>(List.of("CARE-105615")));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 12L))
+        .thenReturn(List.of(planning));
+
+    when(jiraClient.getIssuesByKeys(eq(List.of("CARE-105615")), any()))
+        .thenReturn(List.of(ticket("CARE-105615", List.of())));
+
+    List<PlannedIssueViewDto> plannedIssues = planningService.getPlannedIssues("pod-1", 12L);
+
+    assertThat(plannedIssues).hasSize(1);
+    assertThat(plannedIssues.getFirst().rolledOver()).isTrue();
+  }
+
+  @Test
   void moveIssuesToSprintUpdatesCommittedIssueKeysAfterJiraSuccess() {
     PodDocument pod = podWithBoard(101L);
     when(teamService.getActivePodDocument("pod-1")).thenReturn(pod);
@@ -161,8 +208,8 @@ class PlanningServiceImplTest {
     planning.setPodId("pod-1");
     planning.setJiraSprintId(20L);
     planning.setCommittedIssueKeys(new ArrayList<>(List.of("WFM-0")));
-    when(sprintPlanningRepository.findByPodIdAndJiraSprintId("pod-1", 20L))
-        .thenReturn(Optional.of(planning));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 20L))
+        .thenReturn(List.of(planning));
     when(sprintPlanningRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
     SprintView sprint = new SprintView(20L, "Sprint 20", "active", Instant.now(), Instant.now(), null);
@@ -188,8 +235,8 @@ class PlanningServiceImplTest {
     SprintPlanningDocument planning = new SprintPlanningDocument();
     planning.setPodId("pod-1");
     planning.setJiraSprintId(20L);
-    when(sprintPlanningRepository.findByPodIdAndJiraSprintId("pod-1", 20L))
-        .thenReturn(Optional.of(planning));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 20L))
+        .thenReturn(List.of(planning));
     when(sprintPlanningRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
     SprintView sprint = new SprintView(20L, "Sprint 20", "active", Instant.now(), Instant.now(), null);
@@ -243,14 +290,14 @@ class PlanningServiceImplTest {
     planning.setPodId("pod-1");
     planning.setJiraSprintId(20L);
     planning.setCommittedIssueKeys(new ArrayList<>(List.of("WFM-9")));
-    DomainCapacity devCapacity = new DomainCapacity();
+    PersonCapacity devCapacity = new PersonCapacity();
+    devCapacity.setPersonName("Dev");
     devCapacity.setDomain(Domain.DEV);
-    devCapacity.setHeadcount(1);
     devCapacity.setBandwidthPercent(100);
     planning.setCapacity(List.of(devCapacity));
 
-    when(sprintPlanningRepository.findByPodIdAndJiraSprintId("pod-1", 20L))
-        .thenReturn(Optional.of(planning));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 20L))
+        .thenReturn(List.of(planning));
 
     SprintView sprint = new SprintView(
         20L, "Sprint 20", "active",
@@ -282,8 +329,8 @@ class PlanningServiceImplTest {
     SprintPlanningDocument planning = new SprintPlanningDocument();
     planning.setPodId("pod-1");
     planning.setJiraSprintId(20L);
-    when(sprintPlanningRepository.findByPodIdAndJiraSprintId("pod-1", 20L))
-        .thenReturn(Optional.of(planning));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 20L))
+        .thenReturn(List.of(planning));
 
     SprintView sprint = new SprintView(
         20L, "Sprint 20", "active",
@@ -311,7 +358,7 @@ class PlanningServiceImplTest {
   }
 
   private static JiraFieldConfig fieldConfig() {
-    return new JiraFieldConfig("sp", "domain", Map.of(), List.of("Bug"), List.of("Story"));
+    return new JiraFieldConfig("sp", "domain", "customfield_10020", Map.of(), List.of("Bug"), List.of("Story"));
   }
 
   private static TicketViewDto ticket(String key, List<Long> sprintIds) {
@@ -321,6 +368,6 @@ class PlanningServiceImplTest {
   private static TicketViewDto ticket(String key, List<Long> sprintIds, Domain domain, double storyPoints) {
     return new TicketViewDto(
         key, "Summary", "Story", "In Progress", StatusCategory.IN_PROGRESS,
-        storyPoints, domain, null, null, "High", List.of(), sprintIds, List.of(), List.of());
+        storyPoints, domain, List.of(), null, null, "High", List.of(), sprintIds, List.of(), List.of());
   }
 }

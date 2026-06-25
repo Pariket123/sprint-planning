@@ -14,11 +14,30 @@
             "projectKeys": ["WFM"],
             "fieldMappings": {
               "storyPoints": "customfield_10016",
-              "domain": "customfield_10020",
+              "domain": "customfield_10109",
+              "sprint": "customfield_10020",
               "domainValues": {
                 "DEV": "Dev",
                 "QA": "QA",
-                "DESIGN": "Design"
+                "DESIGN": "Design",
+                "BE": "Backend",
+                "UI": "Ui",
+                "AI": "Ai"
+              },
+              "compositeDomainValues": {
+                "BE+UI": "Backend+Ui",
+                "BE+AI": "Backend+Ai"
+              },
+              "domainStoryPointFields": {
+                "BE": "customfield_10144",
+                "UI": "customfield_10146",
+                "AI": "customfield_10145"
+              },
+              "domainCompletionField": "customfield_10143",
+              "domainCompletionValues": {
+                "BE": "Be",
+                "UI": "Ui",
+                "AI": "Ai"
               }
             },
             "issueTypeMappings": {
@@ -36,11 +55,30 @@
             "projectKeys": ["WFM"],
             "fieldMappings": {
               "storyPoints": "customfield_10016",
-              "domain": "customfield_10020",
+              "domain": "customfield_10109",
+              "sprint": "customfield_10020",
               "domainValues": {
                 "DEV": "Dev",
                 "QA": "QA",
-                "DESIGN": "Design"
+                "DESIGN": "Design",
+                "BE": "Backend",
+                "UI": "Ui",
+                "AI": "Ai"
+              },
+              "compositeDomainValues": {
+                "BE+UI": "Backend+Ui",
+                "BE+AI": "Backend+Ai"
+              },
+              "domainStoryPointFields": {
+                "BE": "customfield_10144",
+                "UI": "customfield_10146",
+                "AI": "customfield_10145"
+              },
+              "domainCompletionField": "customfield_10143",
+              "domainCompletionValues": {
+                "BE": "Be",
+                "UI": "Ui",
+                "AI": "Ai"
               }
             },
             "issueTypeMappings": {
@@ -58,11 +96,30 @@
             "projectKeys": ["WFM"],
             "fieldMappings": {
               "storyPoints": "customfield_10016",
-              "domain": "customfield_10020",
+              "domain": "customfield_10109",
+              "sprint": "customfield_10020",
               "domainValues": {
                 "DEV": "Dev",
                 "QA": "QA",
-                "DESIGN": "Design"
+                "DESIGN": "Design",
+                "BE": "Backend",
+                "UI": "Ui",
+                "AI": "Ai"
+              },
+              "compositeDomainValues": {
+                "BE+UI": "Backend+Ui",
+                "BE+AI": "Backend+Ai"
+              },
+              "domainStoryPointFields": {
+                "BE": "customfield_10144",
+                "UI": "customfield_10146",
+                "AI": "customfield_10145"
+              },
+              "domainCompletionField": "customfield_10143",
+              "domainCompletionValues": {
+                "BE": "Be",
+                "UI": "Ui",
+                "AI": "Ai"
               }
             },
             "issueTypeMappings": {

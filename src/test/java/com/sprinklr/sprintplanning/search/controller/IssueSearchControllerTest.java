@@ -1,6 +1,10 @@
 package com.sprinklr.sprintplanning.search.controller;
 
 import com.sprinklr.sprintplanning.TestSecurityConfig;
+import com.sprinklr.sprintplanning.analytics.dto.AnalyticsResponse;
+import com.sprinklr.sprintplanning.analytics.dto.BugsVsFeaturesDto;
+import com.sprinklr.sprintplanning.analytics.dto.CategoryMetricsDto;
+import com.sprinklr.sprintplanning.analytics.dto.IssueCountsDto;
 import com.sprinklr.sprintplanning.search.dto.IssueSearchPageDto;
 import com.sprinklr.sprintplanning.search.service.IssueSearchService;
 import org.junit.jupiter.api.Test;
@@ -67,5 +71,37 @@ class IssueSearchControllerTest {
         .andExpect(jsonPath("$.data.total").value(2));
 
     verify(issueSearchService).searchInRelease(eq("pod-1"), eq("release-1"), any(), eq(0), eq(50));
+  }
+
+  @Test
+  void analyzeReleaseIssuesReturnsEnvelope() throws Exception {
+    AnalyticsResponse analytics = new AnalyticsResponse(
+        null,
+        "Q3 Release",
+        8.0,
+        5.0,
+        3.0,
+        new IssueCountsDto(2, 1, 1),
+        new BugsVsFeaturesDto(
+            new CategoryMetricsDto(1, 3.0),
+            new CategoryMetricsDto(1, 5.0),
+            new CategoryMetricsDto(0, 0.0)),
+        List.of(),
+        List.of());
+
+    when(issueSearchService.analyzeRelease(eq("pod-1"), eq("release-1"), any()))
+        .thenReturn(analytics);
+
+    mockMvc.perform(post("/api/v1/pods/pod-1/releases/release-1/issues/analytics")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                { "additionalJql": "status != Done" }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.sprintName").value("Q3 Release"))
+        .andExpect(jsonPath("$.data.issueCounts.total").value(2));
+
+    verify(issueSearchService).analyzeRelease(eq("pod-1"), eq("release-1"), any());
   }
 }

@@ -48,7 +48,12 @@ public class PodJiraConfig {
 
     private String storyPoints;
     private String domain;
+    private String sprint;
     private Map<String, String> domainValues = new HashMap<>();
+    private Map<String, String> compositeDomainValues = new HashMap<>();
+    private Map<String, String> domainStoryPointFields = new HashMap<>();
+    private String domainCompletionField;
+    private Map<String, String> domainCompletionValues = new HashMap<>();
 
     public String getStoryPoints() {
       return storyPoints;
@@ -66,12 +71,52 @@ public class PodJiraConfig {
       this.domain = domain;
     }
 
+    public String getSprint() {
+      return sprint;
+    }
+
+    public void setSprint(String sprint) {
+      this.sprint = sprint;
+    }
+
     public Map<String, String> getDomainValues() {
       return domainValues;
     }
 
     public void setDomainValues(Map<String, String> domainValues) {
       this.domainValues = domainValues;
+    }
+
+    public Map<String, String> getCompositeDomainValues() {
+      return compositeDomainValues;
+    }
+
+    public void setCompositeDomainValues(Map<String, String> compositeDomainValues) {
+      this.compositeDomainValues = compositeDomainValues;
+    }
+
+    public Map<String, String> getDomainStoryPointFields() {
+      return domainStoryPointFields;
+    }
+
+    public void setDomainStoryPointFields(Map<String, String> domainStoryPointFields) {
+      this.domainStoryPointFields = domainStoryPointFields;
+    }
+
+    public String getDomainCompletionField() {
+      return domainCompletionField;
+    }
+
+    public void setDomainCompletionField(String domainCompletionField) {
+      this.domainCompletionField = domainCompletionField;
+    }
+
+    public Map<String, String> getDomainCompletionValues() {
+      return domainCompletionValues;
+    }
+
+    public void setDomainCompletionValues(Map<String, String> domainCompletionValues) {
+      this.domainCompletionValues = domainCompletionValues;
     }
   }
 

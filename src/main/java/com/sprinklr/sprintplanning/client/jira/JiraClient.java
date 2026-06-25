@@ -27,5 +27,7 @@ public interface JiraClient {
 
   IssueSearchPage searchIssues(String jql, JiraFieldConfig fieldConfig, int startAt, int maxResults);
 
+  List<IssueView> searchAllIssues(String jql, JiraFieldConfig fieldConfig);
+
   List<TicketViewDto> getIssuesByKeys(List<String> issueKeys, JiraFieldConfig fieldConfig);
 }

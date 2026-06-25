@@ -26,7 +26,9 @@ public class ReleaseConfigDocument {
 
   private String description;
 
-  private List<String> fixVersionIncludes = new ArrayList<>();
+    private String baseJql;
+
+    private List<String> fixVersionIncludes = new ArrayList<>();
 
   private List<String> fixVersionExcludes = new ArrayList<>();
 
@@ -76,6 +78,14 @@ public class ReleaseConfigDocument {
 
   public void setDescription(String description) {
     this.description = description;
+  }
+
+  public String getBaseJql() {
+    return baseJql;
+  }
+
+  public void setBaseJql(String baseJql) {
+    this.baseJql = baseJql;
   }
 
   public List<String> getFixVersionIncludes() {

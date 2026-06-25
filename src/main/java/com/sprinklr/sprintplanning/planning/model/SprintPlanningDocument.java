@@ -21,7 +21,7 @@ public class SprintPlanningDocument {
 
   private Long jiraSprintId;
 
-  private List<DomainCapacity> capacity = new ArrayList<>();
+  private List<PersonCapacity> capacity = new ArrayList<>();
 
   private List<LeaveEntry> leaves = new ArrayList<>();
 
@@ -67,11 +67,11 @@ public class SprintPlanningDocument {
     this.jiraSprintId = jiraSprintId;
   }
 
-  public List<DomainCapacity> getCapacity() {
+  public List<PersonCapacity> getCapacity() {
     return capacity;
   }
 
-  public void setCapacity(List<DomainCapacity> capacity) {
+  public void setCapacity(List<PersonCapacity> capacity) {
     this.capacity = capacity;
   }
 

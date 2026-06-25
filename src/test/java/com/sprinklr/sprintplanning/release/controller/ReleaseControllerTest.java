@@ -1,7 +1,6 @@
 package com.sprinklr.sprintplanning.release.controller;
 
 import com.sprinklr.sprintplanning.TestSecurityConfig;
-import com.sprinklr.sprintplanning.release.dto.ReleaseBasicFiltersDto;
 import com.sprinklr.sprintplanning.release.dto.ReleaseResponse;
 import com.sprinklr.sprintplanning.release.service.ReleaseService;
 import org.junit.jupiter.api.Test;
@@ -56,13 +55,7 @@ class ReleaseControllerTest {
                 {
                   "name": "Q3 2026",
                   "description": "Planning release for Q3",
-                  "fixVersionIncludes": ["Q3 2026", "Release-12.4"],
-                  "fixVersionExcludes": ["Deprecated"],
-                  "basicFilters": {
-                    "issueTypes": ["Story", "Task"],
-                    "statuses": ["To Do"],
-                    "domains": ["BE"]
-                  }
+                  "baseJql": "project = CARE AND fixVersion = \\"Q3 2026\\""
                 }
                 """))
         .andExpect(status().isOk())
@@ -81,7 +74,7 @@ class ReleaseControllerTest {
             .content("""
                 {
                   "name": "Q3 2026",
-                  "fixVersionIncludes": ["Q3 2026"]
+                  "baseJql": "project = CARE AND fixVersion = \\"Q3 2026\\""
                 }
                 """))
         .andExpect(status().isOk())
@@ -92,8 +85,7 @@ class ReleaseControllerTest {
   void deactivateReleaseReturnsEnvelope() throws Exception {
     ReleaseResponse deactivated = new ReleaseResponse(
         "release-1", "team-1", "pod-1", "Q3 2026", null,
-        List.of("Q3 2026"), List.of(), new ReleaseBasicFiltersDto(null, null, null, null, null),
-        false, Instant.now(), Instant.now());
+        "project = CARE", false, Instant.now(), Instant.now());
     when(releaseService.deactivateRelease("pod-1", "release-1")).thenReturn(deactivated);
 
     mockMvc.perform(delete("/api/v1/pods/pod-1/releases/release-1"))
@@ -109,9 +101,7 @@ class ReleaseControllerTest {
         "pod-1",
         "Q3 2026",
         "Planning release for Q3",
-        List.of("Q3 2026", "Release-12.4"),
-        List.of("Deprecated"),
-        new ReleaseBasicFiltersDto(List.of("Story"), List.of("To Do"), List.of("BE"), null, null),
+        "project = CARE AND fixVersion = \"Q3 2026\"",
         true,
         Instant.now(),
         Instant.now());

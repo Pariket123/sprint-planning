@@ -9,7 +9,7 @@ import com.sprinklr.sprintplanning.planning.dto.PlannedScopeDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningSummaryDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningValidationResultDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningViewDto;
-import com.sprinklr.sprintplanning.planning.model.DomainCapacity;
+import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
 import com.sprinklr.sprintplanning.planning.model.LeaveEntry;
 import com.sprinklr.sprintplanning.planning.model.PlanningOverride;
 import com.sprinklr.sprintplanning.planning.model.SprintPlanningDocument;
@@ -21,7 +21,7 @@ public interface PlanningService {
 
   SprintPlanningDocument getOrCreatePlanning(String podId, Long jiraSprintId);
 
-  SprintPlanningDocument updateCapacity(String podId, Long jiraSprintId, List<DomainCapacity> capacity);
+  SprintPlanningDocument updateCapacity(String podId, Long jiraSprintId, List<PersonCapacity> capacity);
 
   SprintPlanningDocument updateLeaves(String podId, Long jiraSprintId, List<LeaveEntry> leaves);
 

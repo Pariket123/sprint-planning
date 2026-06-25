@@ -1,14 +1,20 @@
 package com.sprinklr.sprintplanning.search.service;
 
+import com.sprinklr.sprintplanning.analytics.calculator.AnalyticsCalculator;
+import com.sprinklr.sprintplanning.analytics.dto.AnalyticsResponse;
 import com.sprinklr.sprintplanning.client.jira.JiraClient;
 import com.sprinklr.sprintplanning.common.exception.ApiException;
 import com.sprinklr.sprintplanning.common.model.IssueSearchPage;
+import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.common.model.JiraFieldConfig;
+import com.sprinklr.sprintplanning.release.model.ReleaseConfigDocument;
 import com.sprinklr.sprintplanning.release.service.ReleaseService;
 import com.sprinklr.sprintplanning.search.FilterMergeHelper;
 import com.sprinklr.sprintplanning.search.dto.IssueSearchFilters;
 import com.sprinklr.sprintplanning.search.dto.IssueSearchPageDto;
+import com.sprinklr.sprintplanning.search.dto.IssueSearchReleaseRequest;
 import com.sprinklr.sprintplanning.search.jql.JqlBuilder;
+import com.sprinklr.sprintplanning.search.jql.JqlMergeHelper;
 import com.sprinklr.sprintplanning.team.mapper.JiraConfigMapper;
 import com.sprinklr.sprintplanning.team.model.PodDocument;
 import com.sprinklr.sprintplanning.team.service.TeamService;
@@ -29,7 +35,9 @@ public class IssueSearchServiceImpl implements IssueSearchService {
   private final JiraClient jiraClient;
   private final JiraConfigMapper jiraConfigMapper;
   private final JqlBuilder jqlBuilder;
+  private final JqlMergeHelper jqlMergeHelper;
   private final FilterMergeHelper filterMergeHelper;
+  private final AnalyticsCalculator analyticsCalculator;
 
   public IssueSearchServiceImpl(
       TeamService teamService,
@@ -37,13 +45,17 @@ public class IssueSearchServiceImpl implements IssueSearchService {
       JiraClient jiraClient,
       JiraConfigMapper jiraConfigMapper,
       JqlBuilder jqlBuilder,
-      FilterMergeHelper filterMergeHelper) {
+      JqlMergeHelper jqlMergeHelper,
+      FilterMergeHelper filterMergeHelper,
+      AnalyticsCalculator analyticsCalculator) {
     this.teamService = teamService;
     this.releaseService = releaseService;
     this.jiraClient = jiraClient;
     this.jiraConfigMapper = jiraConfigMapper;
     this.jqlBuilder = jqlBuilder;
+    this.jqlMergeHelper = jqlMergeHelper;
     this.filterMergeHelper = filterMergeHelper;
+    this.analyticsCalculator = analyticsCalculator;
   }
 
   @Override
@@ -53,27 +65,71 @@ public class IssueSearchServiceImpl implements IssueSearchService {
     List<String> projectKeys = resolveProjectKeys(List.of(pod));
     IssueSearchFilters normalized = filterMergeHelper.normalize(filters);
 
-    return executeSearch(projectKeys, normalized, fieldConfig, startAt, maxResults);
+    return executeFilterSearch(projectKeys, normalized, fieldConfig, startAt, maxResults);
   }
 
   @Override
   public IssueSearchPageDto searchInRelease(
-      String podId, String releaseId, IssueSearchFilters filters, int startAt, int maxResults) {
+      String podId,
+      String releaseId,
+      IssueSearchReleaseRequest request,
+      int startAt,
+      int maxResults) {
     PodDocument pod = teamService.getActivePodDocument(podId);
-    var release = releaseService.getActiveReleaseDocument(podId, releaseId);
+    ReleaseConfigDocument release = releaseService.getActiveReleaseDocument(podId, releaseId);
+    JiraFieldConfig fieldConfig = jiraConfigMapper.toJiraFieldConfig(pod.getJiraConfig());
 
-    FilterMergeHelper.MergeResult mergeResult = filterMergeHelper.mergeWithRelease(release, filters);
-    if (mergeResult.isNoMatch()) {
+    Optional<String> jql = resolveReleaseJql(pod, release, request, fieldConfig);
+    if (jql.isEmpty()) {
       return IssueSearchPageDto.empty(startAt, maxResults);
     }
 
-    JiraFieldConfig fieldConfig = jiraConfigMapper.toJiraFieldConfig(pod.getJiraConfig());
-    List<String> projectKeys = resolveProjectKeys(List.of(pod));
-
-    return executeSearch(projectKeys, mergeResult.filters(), fieldConfig, startAt, maxResults);
+    return executeJqlSearch(jql.get(), fieldConfig, startAt, maxResults);
   }
 
-  private IssueSearchPageDto executeSearch(
+  @Override
+  public AnalyticsResponse analyzeRelease(
+      String podId,
+      String releaseId,
+      IssueSearchReleaseRequest request) {
+    PodDocument pod = teamService.getActivePodDocument(podId);
+    ReleaseConfigDocument release = releaseService.getActiveReleaseDocument(podId, releaseId);
+    JiraFieldConfig fieldConfig = jiraConfigMapper.toJiraFieldConfig(pod.getJiraConfig());
+
+    Optional<String> jql = resolveReleaseJql(pod, release, request, fieldConfig);
+    List<IssueView> issues = jql.isEmpty()
+        ? List.of()
+        : jiraClient.searchAllIssues(jql.get(), fieldConfig);
+
+    return analyticsCalculator.calculate(null, release.getName(), issues, fieldConfig);
+  }
+
+  private Optional<String> resolveReleaseJql(
+      PodDocument pod,
+      ReleaseConfigDocument release,
+      IssueSearchReleaseRequest request,
+      JiraFieldConfig fieldConfig) {
+    String baseJql = release.getBaseJql();
+    if (baseJql != null && !baseJql.isBlank()) {
+      String additionalJql = request != null ? request.additionalJql() : null;
+      String mergedJql = jqlMergeHelper.merge(baseJql, additionalJql);
+      if (mergedJql == null || mergedJql.isBlank()) {
+        return Optional.empty();
+      }
+      return Optional.of(mergedJql);
+    }
+
+    FilterMergeHelper.MergeResult mergeResult =
+        filterMergeHelper.mergeWithRelease(release, IssueSearchFilters.empty());
+    if (mergeResult.isNoMatch()) {
+      return Optional.empty();
+    }
+
+    List<String> projectKeys = resolveProjectKeys(List.of(pod));
+    return jqlBuilder.build(projectKeys, mergeResult.filters(), fieldConfig);
+  }
+
+  private IssueSearchPageDto executeFilterSearch(
       List<String> projectKeys,
       IssueSearchFilters filters,
       JiraFieldConfig fieldConfig,
@@ -91,7 +147,15 @@ public class IssueSearchServiceImpl implements IssueSearchService {
       return IssueSearchPageDto.empty(startAt, maxResults);
     }
 
-    IssueSearchPage page = jiraClient.searchIssues(jql.get(), fieldConfig, startAt, maxResults);
+    return executeJqlSearch(jql.get(), fieldConfig, startAt, maxResults);
+  }
+
+  private IssueSearchPageDto executeJqlSearch(
+      String jql,
+      JiraFieldConfig fieldConfig,
+      int startAt,
+      int maxResults) {
+    IssueSearchPage page = jiraClient.searchIssues(jql, fieldConfig, startAt, maxResults);
     return toPageDto(page);
   }
 

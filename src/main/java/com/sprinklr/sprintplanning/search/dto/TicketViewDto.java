@@ -2,6 +2,7 @@ package com.sprinklr.sprintplanning.search.dto;
 
 import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.enums.StatusCategory;
+import com.sprinklr.sprintplanning.common.model.DomainAllocation;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.List;
@@ -15,6 +16,7 @@ public record TicketViewDto(
     StatusCategory statusCategory,
     Double storyPoints,
     Domain domain,
+    List<DomainAllocation> domainAllocations,
     String assigneeId,
     String assigneeDisplayName,
     String priority,

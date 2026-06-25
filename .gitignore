@@ -11,3 +11,7 @@ target/
 .DS_Store
 .env
 *.log
+
+# Frontend
+frontend/node_modules/
+frontend/dist/

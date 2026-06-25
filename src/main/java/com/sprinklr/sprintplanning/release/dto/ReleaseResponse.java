@@ -3,7 +3,6 @@ package com.sprinklr.sprintplanning.release.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
-import java.util.List;
 
 @Schema(description = "Release configuration for a pod/module")
 public record ReleaseResponse(
@@ -12,9 +11,7 @@ public record ReleaseResponse(
     String podId,
     String name,
     String description,
-    List<String> fixVersionIncludes,
-    List<String> fixVersionExcludes,
-    ReleaseBasicFiltersDto basicFilters,
+    String baseJql,
     boolean active,
     Instant createdAt,
     Instant updatedAt

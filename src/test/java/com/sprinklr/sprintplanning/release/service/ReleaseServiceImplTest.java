@@ -3,11 +3,9 @@ package com.sprinklr.sprintplanning.release.service;
 import com.sprinklr.sprintplanning.common.exception.ApiException;
 import com.sprinklr.sprintplanning.common.exception.ResourceNotFoundException;
 import com.sprinklr.sprintplanning.release.dto.CreateReleaseRequest;
-import com.sprinklr.sprintplanning.release.dto.ReleaseBasicFiltersDto;
 import com.sprinklr.sprintplanning.release.dto.ReleaseResponse;
 import com.sprinklr.sprintplanning.release.dto.UpdateReleaseRequest;
 import com.sprinklr.sprintplanning.release.mapper.ReleaseMapper;
-import com.sprinklr.sprintplanning.release.model.ReleaseBasicFilters;
 import com.sprinklr.sprintplanning.release.model.ReleaseConfigDocument;
 import com.sprinklr.sprintplanning.release.repository.ReleaseConfigRepository;
 import com.sprinklr.sprintplanning.team.model.PodDocument;
@@ -47,7 +45,7 @@ class ReleaseServiceImplTest {
   }
 
   @Test
-  void createReleaseStoresUserProvidedFixVersions() {
+  void createReleaseStoresBaseJql() {
     when(teamService.getActivePodDocument("pod-1")).thenReturn(pod("pod-1", "team-1"));
     when(releaseConfigRepository.save(any())).thenAnswer(invocation -> {
       ReleaseConfigDocument saved = invocation.getArgument(0);
@@ -58,22 +56,18 @@ class ReleaseServiceImplTest {
     CreateReleaseRequest request = new CreateReleaseRequest(
         "Q3 2026",
         "Planning release for Q3",
-        List.of(" Q3 2026 ", "Q3 2026", "Release-12.4"),
-        List.of(" Deprecated ", "Deprecated"),
-        new ReleaseBasicFiltersDto(
-            List.of("Story", "Task"), List.of("To Do"), List.of("BE"), List.of("High"), null));
+        "project = CARE AND fixVersion = \"Q3 2026\"");
 
     ReleaseResponse response = releaseService.createRelease("pod-1", request);
 
     assertThat(response.podId()).isEqualTo("pod-1");
     assertThat(response.teamId()).isEqualTo("team-1");
-    assertThat(response.fixVersionIncludes()).containsExactly("Q3 2026", "Release-12.4");
-    assertThat(response.fixVersionExcludes()).containsExactly("Deprecated");
-    assertThat(response.basicFilters().issueTypes()).containsExactly("Story", "Task");
+    assertThat(response.baseJql()).isEqualTo("project = CARE AND fixVersion = \"Q3 2026\"");
 
     ArgumentCaptor<ReleaseConfigDocument> captor = ArgumentCaptor.forClass(ReleaseConfigDocument.class);
     verify(releaseConfigRepository).save(captor.capture());
-    assertThat(captor.getValue().getFixVersionIncludes()).containsExactly("Q3 2026", "Release-12.4");
+    assertThat(captor.getValue().getBaseJql())
+        .isEqualTo("project = CARE AND fixVersion = \"Q3 2026\"");
     assertThat(captor.getValue().getPodId()).isEqualTo("pod-1");
   }
 
@@ -92,7 +86,7 @@ class ReleaseServiceImplTest {
   }
 
   @Test
-  void updateReleaseUpdatesUserProvidedFixVersions() {
+  void updateReleaseUpdatesBaseJql() {
     ReleaseConfigDocument existing = activeRelease("release-1", "pod-1", "team-1", "Old Name");
     when(teamService.getActivePodDocument("pod-1")).thenReturn(pod("pod-1", "team-1"));
     when(releaseConfigRepository.findByIdAndPodIdAndActiveTrue("release-1", "pod-1"))
@@ -102,15 +96,12 @@ class ReleaseServiceImplTest {
     UpdateReleaseRequest request = new UpdateReleaseRequest(
         "Q4 2026",
         "Updated",
-        List.of("Q4 2026"),
-        List.of("Cancelled"),
-        new ReleaseBasicFiltersDto(List.of("Bug"), null, null, null, null));
+        "project = CARE AND fixVersion = \"Q4 2026\"");
 
     ReleaseResponse response = releaseService.updateRelease("pod-1", "release-1", request);
 
     assertThat(response.name()).isEqualTo("Q4 2026");
-    assertThat(response.fixVersionIncludes()).containsExactly("Q4 2026");
-    assertThat(response.fixVersionExcludes()).containsExactly("Cancelled");
+    assertThat(response.baseJql()).isEqualTo("project = CARE AND fixVersion = \"Q4 2026\"");
   }
 
   @Test
@@ -141,8 +132,7 @@ class ReleaseServiceImplTest {
   void createReleaseRejectsBlankName() {
     when(teamService.getActivePodDocument("pod-1")).thenReturn(pod("pod-1", "team-1"));
 
-    CreateReleaseRequest request = new CreateReleaseRequest(
-        "  ", null, List.of(), List.of(), null);
+    CreateReleaseRequest request = new CreateReleaseRequest("  ", null, "project = SCRUM");
 
     assertThatThrownBy(() -> releaseService.createRelease("pod-1", request))
         .isInstanceOf(ApiException.class)
@@ -162,8 +152,8 @@ class ReleaseServiceImplTest {
     release.setPodId(podId);
     release.setTeamId(teamId);
     release.setName(name);
+    release.setBaseJql("project = SCRUM");
     release.setActive(true);
-    release.setBasicFilters(new ReleaseBasicFilters());
     release.setCreatedAt(Instant.now());
     release.setUpdatedAt(Instant.now());
     return release;

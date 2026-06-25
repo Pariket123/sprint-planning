@@ -32,6 +32,7 @@ public class RolloverServiceImpl implements RolloverService {
   private final JiraClient jiraClient;
   private final JiraConfigMapper jiraConfigMapper;
   private final SprintPlanningRepository sprintPlanningRepository;
+  private final SprintPlanningDocumentAccessor planningDocumentAccessor;
   private final RolloverMapper rolloverMapper;
 
   public RolloverServiceImpl(
@@ -39,11 +40,13 @@ public class RolloverServiceImpl implements RolloverService {
       JiraClient jiraClient,
       JiraConfigMapper jiraConfigMapper,
       SprintPlanningRepository sprintPlanningRepository,
+      SprintPlanningDocumentAccessor planningDocumentAccessor,
       RolloverMapper rolloverMapper) {
     this.teamService = teamService;
     this.jiraClient = jiraClient;
     this.jiraConfigMapper = jiraConfigMapper;
     this.sprintPlanningRepository = sprintPlanningRepository;
+    this.planningDocumentAccessor = planningDocumentAccessor;
     this.rolloverMapper = rolloverMapper;
   }
 
@@ -61,10 +64,10 @@ public class RolloverServiceImpl implements RolloverService {
       updateCommittedIssueKeys(podId, request.toSprintId(), List.of(issueKey));
     }
 
-    SprintPlanningDocument fromPlanning = getOrCreatePlanning(podId, fromSprintId);
+    SprintPlanningDocument fromPlanning = planningDocumentAccessor.getOrCreate(podId, fromSprintId);
     RolloverIssue rolloverIssue = buildRolloverIssue(
         issueKey, fromSprintId, request.toSprintId(), ticket, request.notes());
-    fromPlanning.getRolloverIssues().add(rolloverIssue);
+    planningDocumentAccessor.rolloverIssues(fromPlanning).add(rolloverIssue);
     save(fromPlanning);
 
     return rolloverMapper.toDto(rolloverIssue);
@@ -86,8 +89,8 @@ public class RolloverServiceImpl implements RolloverService {
   @Override
   public List<RolloverIssueDto> getOutgoingRollovers(String podId, Long jiraSprintId) {
     teamService.getActivePodDocument(podId);
-    SprintPlanningDocument planning = getOrCreatePlanning(podId, jiraSprintId);
-    return planning.getRolloverIssues().stream()
+    SprintPlanningDocument planning = planningDocumentAccessor.getOrCreate(podId, jiraSprintId);
+    return planningDocumentAccessor.rolloverIssues(planning).stream()
         .filter(issue -> jiraSprintId.equals(issue.getFromSprintId()))
         .map(rolloverMapper::toDto)
         .toList();
@@ -97,7 +100,7 @@ public class RolloverServiceImpl implements RolloverService {
   public List<RolloverIssueDto> getIncomingRollovers(String podId, Long jiraSprintId) {
     teamService.getActivePodDocument(podId);
     return sprintPlanningRepository.findIncomingRollovers(podId, jiraSprintId).stream()
-        .flatMap(document -> document.getRolloverIssues().stream())
+        .flatMap(document -> planningDocumentAccessor.rolloverIssues(document).stream())
         .filter(issue -> jiraSprintId.equals(issue.getToSprintId()))
         .map(rolloverMapper::toDto)
         .toList();
@@ -123,8 +126,8 @@ public class RolloverServiceImpl implements RolloverService {
   }
 
   private void updateCommittedIssueKeys(String podId, Long jiraSprintId, List<String> issueKeys) {
-    SprintPlanningDocument planning = getOrCreatePlanning(podId, jiraSprintId);
-    LinkedHashSet<String> merged = new LinkedHashSet<>(planning.getCommittedIssueKeys());
+    SprintPlanningDocument planning = planningDocumentAccessor.getOrCreate(podId, jiraSprintId);
+    LinkedHashSet<String> merged = new LinkedHashSet<>(planningDocumentAccessor.normalize(planning).getCommittedIssueKeys());
     merged.addAll(issueKeys);
     planning.setCommittedIssueKeys(new ArrayList<>(merged));
     planning.setCommittedAt(Instant.now());
@@ -139,22 +142,7 @@ public class RolloverServiceImpl implements RolloverService {
     return null;
   }
 
-  private SprintPlanningDocument getOrCreatePlanning(String podId, Long jiraSprintId) {
-    return sprintPlanningRepository.findByPodIdAndJiraSprintId(podId, jiraSprintId)
-        .orElseGet(() -> createPlanning(podId, jiraSprintId));
-  }
-
-  private SprintPlanningDocument createPlanning(String podId, Long jiraSprintId) {
-    SprintPlanningDocument document = new SprintPlanningDocument();
-    document.setPodId(podId);
-    document.setJiraSprintId(jiraSprintId);
-    document.setCreatedAt(Instant.now());
-    document.setUpdatedAt(Instant.now());
-    return sprintPlanningRepository.save(document);
-  }
-
   private SprintPlanningDocument save(SprintPlanningDocument document) {
-    document.setUpdatedAt(Instant.now());
-    return sprintPlanningRepository.save(document);
+    return planningDocumentAccessor.save(document);
   }
 }

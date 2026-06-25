@@ -1,0 +1,115 @@
+@import 'tailwindcss';
+
+@theme {
+  /* Sprinklr brand — sky blue */
+  --color-brand-50: #e8f6fc;
+  --color-brand-100: #d1edf9;
+  --color-brand-200: #a3daf3;
+  --color-brand-300: #5bc4e8;
+  --color-brand-500: #1ba8e0;
+  --color-brand-600: #1ba8e0;
+  --color-brand-700: #0099cc;
+
+  /* Rollover accent */
+  --color-rollover-50: #fff0e8;
+  --color-rollover-200: #ffc9a8;
+  --color-rollover-700: #ff6b2b;
+
+  /* Neutrals */
+  --color-gray-50: #f5f7fa;
+  --color-gray-100: #eef0f4;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #555555;
+  --color-gray-600: #555555;
+  --color-gray-700: #555555;
+  --color-gray-800: #333333;
+  --color-gray-900: #0a0a0a;
+
+  /* Success */
+  --color-emerald-50: #e6faf3;
+  --color-emerald-100: #ccf5e7;
+  --color-emerald-200: #99e6cc;
+  --color-emerald-500: #00b87c;
+  --color-emerald-600: #00b87c;
+  --color-emerald-700: #00b87c;
+  --color-emerald-800: #009966;
+
+  /* Warning */
+  --color-amber-50: #fff8eb;
+  --color-amber-100: #fef0c7;
+  --color-amber-200: #fde68a;
+  --color-amber-500: #f59e0b;
+  --color-amber-700: #f59e0b;
+  --color-amber-800: #d97706;
+  --color-amber-900: #b45309;
+
+  /* Error */
+  --color-red-50: #fef2f2;
+  --color-red-100: #fee2e2;
+  --color-red-200: #fecaca;
+  --color-red-300: #fca5a5;
+  --color-red-600: #ef4444;
+  --color-red-700: #ef4444;
+  --color-red-800: #dc2626;
+  --color-red-900: #991b1b;
+
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: #f5f7fa;
+  color: #555555;
+  font-weight: 400;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: #0a0a0a;
+  font-weight: 600;
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-brand-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-brand-600 bg-transparent px-4 py-1.5 text-sm font-medium text-brand-600 transition hover:bg-brand-50 disabled:opacity-50;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-red-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50;
+  }
+
+  .aurora-accent {
+    background: linear-gradient(
+      90deg,
+      rgba(245, 230, 66, 0.25) 0%,
+      rgba(168, 216, 110, 0.25) 33%,
+      rgba(91, 196, 232, 0.25) 66%,
+      rgba(196, 181, 244, 0.25) 100%
+    );
+    height: 4px;
+    width: 100%;
+    flex-shrink: 0;
+  }
+}

@@ -11,4 +11,6 @@ public interface PodRepository extends MongoRepository<PodDocument, String> {
   List<PodDocument> findByTeamIdAndActiveTrueOrderByNameAsc(String teamId);
 
   Optional<PodDocument> findByIdAndActiveTrue(String id);
+
+  Optional<PodDocument> findByTeamIdAndCode(String teamId, String code);
 }
