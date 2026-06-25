@@ -5,12 +5,16 @@ export interface ReleaseFormState {
   name: string
   description: string
   baseJql: string
+  startDate: string
+  durationDays: string
 }
 
 export const emptyReleaseForm: ReleaseFormState = {
   name: '',
   description: '',
   baseJql: '',
+  startDate: '',
+  durationDays: '',
 }
 
 export function releaseToFormState(release: ReleaseResponse): ReleaseFormState {
@@ -18,6 +22,8 @@ export function releaseToFormState(release: ReleaseResponse): ReleaseFormState {
     name: release.name,
     description: release.description ?? '',
     baseJql: release.baseJql ?? '',
+    startDate: release.startDate ?? '',
+    durationDays: release.durationDays != null ? String(release.durationDays) : '',
   }
 }
 
@@ -25,10 +31,14 @@ export function formStateToReleaseRequest(
   form: ReleaseFormState,
 ): CreateReleaseRequest | UpdateReleaseRequest {
   const baseJql = form.baseJql.trim()
+  const durationDays = form.durationDays.trim()
+  const parsedDuration = durationDays ? Number(durationDays) : null
   return {
     name: form.name.trim(),
     description: form.description.trim() || null,
     baseJql: baseJql || null,
+    durationDays: parsedDuration != null && Number.isFinite(parsedDuration) ? parsedDuration : null,
+    startDate: form.startDate.trim() || null,
   }
 }
 
@@ -56,6 +66,10 @@ export function ReleaseForm({ initial, submitLabel, onSubmit, onCancel }: Releas
     }
     if (!form.baseJql.trim()) {
       setError('Base JQL is required.')
+      return
+    }
+    if (!form.durationDays.trim() || !Number.isFinite(Number(form.durationDays)) || Number(form.durationDays) < 1) {
+      setError('Duration (working days) must be at least 1.')
       return
     }
 
@@ -115,6 +129,41 @@ export function ReleaseForm({ initial, submitLabel, onSubmit, onCancel }: Releas
           rows={4}
           placeholder='project = SCRUM AND fixVersion = "Q3"'
           className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-sm text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          required
+        />
+      </div>
+
+      <div>
+        <label htmlFor="release-start-date" className="block text-sm font-medium text-gray-700">
+          Start date
+        </label>
+        <p className="mt-1 text-xs text-gray-500">
+          Used for leave overlap calculations on the Capacity tab.
+        </p>
+        <input
+          id="release-start-date"
+          type="date"
+          value={form.startDate}
+          onChange={(event) => update('startDate', event.target.value)}
+          className="mt-1.5 w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="release-duration-days" className="block text-sm font-medium text-gray-700">
+          Duration (working days)
+        </label>
+        <p className="mt-1 text-xs text-gray-500">
+          Used to compute per-domain capacity when planning release scope.
+        </p>
+        <input
+          id="release-duration-days"
+          type="number"
+          min={1}
+          step={1}
+          value={form.durationDays}
+          onChange={(event) => update('durationDays', event.target.value)}
+          className="mt-1.5 w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
           required
         />
       </div>

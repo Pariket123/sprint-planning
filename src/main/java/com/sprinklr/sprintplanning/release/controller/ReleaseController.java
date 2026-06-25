@@ -3,6 +3,7 @@ package com.sprinklr.sprintplanning.release.controller;
 import com.sprinklr.sprintplanning.common.dto.ApiResponse;
 import com.sprinklr.sprintplanning.release.dto.CreateReleaseRequest;
 import com.sprinklr.sprintplanning.release.dto.ReleaseResponse;
+import com.sprinklr.sprintplanning.release.dto.UpdateReleaseCapacityRequest;
 import com.sprinklr.sprintplanning.release.dto.UpdateReleaseRequest;
 import com.sprinklr.sprintplanning.release.service.ReleaseService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -68,5 +69,14 @@ public class ReleaseController {
       @PathVariable String podId,
       @PathVariable String releaseId) {
     return ResponseEntity.ok(ApiResponse.ok(releaseService.deactivateRelease(podId, releaseId)));
+  }
+
+  @PutMapping("/{releaseId}/capacity")
+  @Operation(summary = "Upsert team capacity inputs for a release")
+  public ResponseEntity<ApiResponse<ReleaseResponse>> updateCapacity(
+      @PathVariable String podId,
+      @PathVariable String releaseId,
+      @Valid @RequestBody UpdateReleaseCapacityRequest request) {
+    return ResponseEntity.ok(ApiResponse.ok(releaseService.updateCapacity(podId, releaseId, request)));
   }
 }

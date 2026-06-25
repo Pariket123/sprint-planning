@@ -85,7 +85,7 @@ class ReleaseControllerTest {
   void deactivateReleaseReturnsEnvelope() throws Exception {
     ReleaseResponse deactivated = new ReleaseResponse(
         "release-1", "team-1", "pod-1", "Q3 2026", null,
-        "project = CARE", false, Instant.now(), Instant.now());
+        "project = CARE", 20, null, List.of(), 0.0, false, Instant.now(), Instant.now());
     when(releaseService.deactivateRelease("pod-1", "release-1")).thenReturn(deactivated);
 
     mockMvc.perform(delete("/api/v1/pods/pod-1/releases/release-1"))
@@ -102,6 +102,10 @@ class ReleaseControllerTest {
         "Q3 2026",
         "Planning release for Q3",
         "project = CARE AND fixVersion = \"Q3 2026\"",
+        20,
+        null,
+        List.of(),
+        0.0,
         true,
         Instant.now(),
         Instant.now());

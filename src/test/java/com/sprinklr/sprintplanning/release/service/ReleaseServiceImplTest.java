@@ -56,13 +56,16 @@ class ReleaseServiceImplTest {
     CreateReleaseRequest request = new CreateReleaseRequest(
         "Q3 2026",
         "Planning release for Q3",
-        "project = CARE AND fixVersion = \"Q3 2026\"");
+        "project = CARE AND fixVersion = \"Q3 2026\"",
+        20,
+        null);
 
     ReleaseResponse response = releaseService.createRelease("pod-1", request);
 
     assertThat(response.podId()).isEqualTo("pod-1");
     assertThat(response.teamId()).isEqualTo("team-1");
     assertThat(response.baseJql()).isEqualTo("project = CARE AND fixVersion = \"Q3 2026\"");
+    assertThat(response.durationDays()).isEqualTo(20);
 
     ArgumentCaptor<ReleaseConfigDocument> captor = ArgumentCaptor.forClass(ReleaseConfigDocument.class);
     verify(releaseConfigRepository).save(captor.capture());
@@ -96,7 +99,9 @@ class ReleaseServiceImplTest {
     UpdateReleaseRequest request = new UpdateReleaseRequest(
         "Q4 2026",
         "Updated",
-        "project = CARE AND fixVersion = \"Q4 2026\"");
+        "project = CARE AND fixVersion = \"Q4 2026\"",
+        15,
+        null);
 
     ReleaseResponse response = releaseService.updateRelease("pod-1", "release-1", request);
 
@@ -132,7 +137,7 @@ class ReleaseServiceImplTest {
   void createReleaseRejectsBlankName() {
     when(teamService.getActivePodDocument("pod-1")).thenReturn(pod("pod-1", "team-1"));
 
-    CreateReleaseRequest request = new CreateReleaseRequest("  ", null, "project = SCRUM");
+    CreateReleaseRequest request = new CreateReleaseRequest("  ", null, "project = SCRUM", null, null);
 
     assertThatThrownBy(() -> releaseService.createRelease("pod-1", request))
         .isInstanceOf(ApiException.class)

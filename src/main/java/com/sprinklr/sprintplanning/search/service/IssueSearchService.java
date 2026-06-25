@@ -1,6 +1,7 @@
 package com.sprinklr.sprintplanning.search.service;
 
 import com.sprinklr.sprintplanning.analytics.dto.AnalyticsResponse;
+import com.sprinklr.sprintplanning.release.dto.ReleaseCapacitySummaryDto;
 import com.sprinklr.sprintplanning.search.dto.IssueSearchFilters;
 import com.sprinklr.sprintplanning.search.dto.IssueSearchPageDto;
 import com.sprinklr.sprintplanning.search.dto.IssueSearchReleaseRequest;
@@ -17,6 +18,11 @@ public interface IssueSearchService {
       int maxResults);
 
   AnalyticsResponse analyzeRelease(
+      String podId,
+      String releaseId,
+      IssueSearchReleaseRequest request);
+
+  ReleaseCapacitySummaryDto calculateReleaseCapacityMetrics(
       String podId,
       String releaseId,
       IssueSearchReleaseRequest request);

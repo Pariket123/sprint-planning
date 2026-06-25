@@ -1,12 +1,27 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
-import { ApiError, getReleaseIssuesAnalytics, searchIssuesInRelease } from '../../api'
-import type { AnalyticsResponse, IssueSearchPageDto, ReleaseResponse } from '../../api/types'
+import {
+  ApiError,
+  getRelease,
+  getReleaseCapacityMetrics,
+  getReleaseIssuesAnalytics,
+  searchIssuesInRelease,
+  updateReleaseCapacity,
+} from '../../api'
+import type {
+  AnalyticsResponse,
+  IssueSearchPageDto,
+  ReleaseCapacitySummaryDto,
+  ReleaseResponse,
+} from '../../api/types'
 import { AnalyticsInsightsPanel } from '../analytics/AnalyticsInsightsPanel'
 import { PageErrorState, PageLoadingState } from '../common'
+import { ReleaseCapacityEditor } from './ReleaseCapacityEditor'
+import { DomainMetricsTable } from '../planning/DomainMetricsTable'
 import { IssueTable } from '../issues/IssueTable'
+import { formatStoryPoints } from '../../utils/format'
 
-type ReleaseViewTab = 'issues' | 'analysis'
+type ReleaseViewTab = 'issues' | 'analysis' | 'capacity'
 
 interface ReleaseIssuesTabProps {
   podId: string
@@ -15,6 +30,7 @@ interface ReleaseIssuesTabProps {
 }
 
 export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabProps) {
+  const [releaseConfig, setReleaseConfig] = useState(release)
   const [activeTab, setActiveTab] = useState<ReleaseViewTab>('issues')
   const [draftAdditionalJql, setDraftAdditionalJql] = useState('')
   const [appliedAdditionalJql, setAppliedAdditionalJql] = useState('')
@@ -25,7 +41,14 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
   const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
+  const [capacityMetrics, setCapacityMetrics] = useState<ReleaseCapacitySummaryDto | null>(null)
+  const [capacityLoading, setCapacityLoading] = useState(false)
+  const [capacityError, setCapacityError] = useState<string | null>(null)
   const pageSize = 50
+
+  useEffect(() => {
+    setReleaseConfig(release)
+  }, [release])
 
   const buildReleaseRequest = useCallback(
     (jql: string) => ({ additionalJql: jql.trim() || null }),
@@ -44,7 +67,7 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
       try {
         const result = await searchIssuesInRelease(
           podId,
-          release.id,
+          releaseConfig.id,
           buildReleaseRequest(jql),
           { startAt: offset, maxResults: pageSize },
         )
@@ -57,7 +80,7 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
         setLoading(false)
       }
     },
-    [podId, release.id, appliedAdditionalJql, buildReleaseRequest, pageSize],
+    [podId, releaseConfig.id, appliedAdditionalJql, buildReleaseRequest, pageSize],
   )
 
   const loadAnalytics = useCallback(
@@ -68,7 +91,7 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
       try {
         const result = await getReleaseIssuesAnalytics(
           podId,
-          release.id,
+          releaseConfig.id,
           buildReleaseRequest(jql),
         )
         setAnalytics(result)
@@ -81,7 +104,31 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
         setAnalyticsLoading(false)
       }
     },
-    [podId, release.id, appliedAdditionalJql, buildReleaseRequest],
+    [podId, releaseConfig.id, appliedAdditionalJql, buildReleaseRequest],
+  )
+
+  const loadCapacityMetrics = useCallback(
+    async (jql = appliedAdditionalJql) => {
+      setCapacityLoading(true)
+      setCapacityError(null)
+
+      try {
+        const result = await getReleaseCapacityMetrics(
+          podId,
+          releaseConfig.id,
+          buildReleaseRequest(jql),
+        )
+        setCapacityMetrics(result)
+      } catch (err) {
+        setCapacityMetrics(null)
+        setCapacityError(
+          err instanceof ApiError ? err.message : 'Failed to load release capacity metrics.',
+        )
+      } finally {
+        setCapacityLoading(false)
+      }
+    },
+    [podId, releaseConfig.id, appliedAdditionalJql, buildReleaseRequest],
   )
 
   useEffect(() => {
@@ -91,6 +138,8 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
     setPage(null)
     setAnalytics(null)
     setAnalyticsError(null)
+    setCapacityMetrics(null)
+    setCapacityError(null)
 
     void (async () => {
       setLoading(true)
@@ -120,8 +169,21 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
     void loadAnalytics(appliedAdditionalJql)
   }, [activeTab, appliedAdditionalJql, loadAnalytics])
 
+  useEffect(() => {
+    if (activeTab !== 'capacity') {
+      return
+    }
+    void loadCapacityMetrics(appliedAdditionalJql)
+  }, [activeTab, appliedAdditionalJql, loadCapacityMetrics])
+
   const handleSearch = () => {
     void runSearch(0, draftAdditionalJql, true)
+  }
+
+  const handleCapacitySaved = async () => {
+    const refreshed = await getRelease(podId, releaseConfig.id)
+    setReleaseConfig(refreshed)
+    await loadCapacityMetrics(appliedAdditionalJql)
   }
 
   return (
@@ -136,14 +198,22 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
       </button>
 
       <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">{release.name}</h2>
-        {release.description && (
-          <p className="mt-1 text-sm text-gray-600">{release.description}</p>
+        <h2 className="text-lg font-semibold text-gray-900">{releaseConfig.name}</h2>
+        {releaseConfig.description && (
+          <p className="mt-1 text-sm text-gray-600">{releaseConfig.description}</p>
         )}
-        {release.baseJql ? (
+        <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-600">
+          {releaseConfig.durationDays != null && (
+            <p>
+              <span className="font-medium text-gray-700">Duration:</span>{' '}
+              {releaseConfig.durationDays} working days
+            </p>
+          )}
+        </div>
+        {releaseConfig.baseJql ? (
           <div className="mt-4 rounded-md border border-gray-100 bg-gray-50 px-4 py-3">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Base JQL</p>
-            <p className="mt-1 font-mono text-xs text-gray-800">{release.baseJql}</p>
+            <p className="mt-1 font-mono text-xs text-gray-800">{releaseConfig.baseJql}</p>
           </div>
         ) : (
           <p className="mt-4 text-sm text-amber-700">
@@ -184,6 +254,11 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
             active={activeTab === 'issues'}
             onClick={() => setActiveTab('issues')}
             label="Issues"
+          />
+          <ViewTabButton
+            active={activeTab === 'capacity'}
+            onClick={() => setActiveTab('capacity')}
+            label="Capacity"
           />
           <ViewTabButton
             active={activeTab === 'analysis'}
@@ -231,6 +306,77 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
             </section>
           )}
         </>
+      )}
+
+      {activeTab === 'capacity' && (
+        <div className="space-y-6">
+          {appliedAdditionalJql.trim() && (
+            <p className="rounded-md border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-800">
+              Domain metrics reflect the additional JQL filter you last applied on the Issues tab.
+            </p>
+          )}
+
+          {!releaseConfig.durationDays && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Set the release duration (working days) when creating or editing the release to
+              compute available capacity.
+            </p>
+          )}
+
+          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="text-sm font-semibold text-gray-900">Capacity</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Add each team member with their domain and bandwidth for this release window.
+            </p>
+            <div className="mt-4">
+              <ReleaseCapacityEditor
+                initialCapacity={releaseConfig.capacity ?? []}
+                initialLeavePercent={releaseConfig.leavePercent ?? 0}
+                onSave={async (capacity, leavePercent) => {
+                  await updateReleaseCapacity(podId, releaseConfig.id, {
+                    capacity,
+                    leavePercent,
+                  })
+                  await handleCapacitySaved()
+                }}
+              />
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">Domain metrics</h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Committed story points are computed from release issues matching your current
+                  filters.
+                </p>
+              </div>
+              {capacityMetrics && !capacityLoading && (
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium text-gray-800">Total capacity:</span>{' '}
+                  {formatStoryPoints(capacityMetrics.totalAvailableCapacity)}
+                  <span className="mx-2 text-gray-300">|</span>
+                  <span className="font-medium text-gray-800">Committed SP:</span>{' '}
+                  {formatStoryPoints(capacityMetrics.totalCommittedStoryPoints)}
+                </div>
+              )}
+            </div>
+
+            {capacityLoading && <PageLoadingState message="Computing domain metrics..." />}
+
+            {capacityError && !capacityLoading && (
+              <PageErrorState
+                message={capacityError}
+                onRetry={() => void loadCapacityMetrics(appliedAdditionalJql)}
+              />
+            )}
+
+            {capacityMetrics && !capacityLoading && !capacityError && (
+              <DomainMetricsTable metrics={capacityMetrics.domainMetrics} />
+            )}
+          </section>
+        </div>
       )}
 
       {activeTab === 'analysis' && (

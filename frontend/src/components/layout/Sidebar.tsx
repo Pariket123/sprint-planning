@@ -55,7 +55,7 @@ export function Sidebar() {
   })()
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col bg-[#0A0A0A]">
+    <aside className="flex h-screen w-64 shrink-0 flex-col overflow-hidden bg-[#0A0A0A]">
       <div className="border-b border-white/10 px-5 py-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-white">
           Sprint Planning
@@ -63,7 +63,7 @@ export function Sidebar() {
         <h2 className="mt-1 text-lg font-semibold text-white">Planning Console</h2>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4" aria-label="Main navigation">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Main navigation">
         {navItems.map((item) => (
           <NavLink
             key={item.to}

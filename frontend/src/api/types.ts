@@ -61,6 +61,10 @@ export interface ReleaseResponse {
   name: string
   description: string | null
   baseJql: string | null
+  durationDays: number | null
+  startDate: string | null
+  capacity: PersonCapacity[] | null
+  leavePercent: number | null
   active: boolean
   createdAt: string | null
   updatedAt: string | null
@@ -70,16 +74,35 @@ export interface CreateReleaseRequest {
   name: string
   description?: string | null
   baseJql?: string | null
+  durationDays?: number | null
+  startDate?: string | null
 }
 
 export interface UpdateReleaseRequest {
   name: string
   description?: string | null
   baseJql?: string | null
+  durationDays?: number | null
+  startDate?: string | null
 }
 
 export interface IssueSearchReleaseRequest {
   additionalJql?: string | null
+}
+
+export interface ReleaseCapacitySummaryDto {
+  releaseId: string
+  durationDays: number | null
+  totalAvailableCapacity: number
+  totalCommittedStoryPoints: number
+  totalIssueCount: number
+  domainMetrics: DomainPlanningMetricsDto[]
+  riskLevel: RiskLevel
+}
+
+export interface UpdateReleaseCapacityRequest {
+  capacity: PersonCapacity[]
+  leavePercent?: number | null
 }
 
 export interface IssueSearchQueryParams {

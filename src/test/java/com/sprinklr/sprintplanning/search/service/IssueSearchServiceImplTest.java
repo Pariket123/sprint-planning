@@ -2,6 +2,8 @@ package com.sprinklr.sprintplanning.search.service;
 
 import com.sprinklr.sprintplanning.analytics.calculator.AnalyticsCalculator;
 import com.sprinklr.sprintplanning.analytics.dto.AnalyticsResponse;
+import com.sprinklr.sprintplanning.planning.calculator.PlanningCalculator;
+import com.sprinklr.sprintplanning.planning.config.PlanningProperties;
 import com.sprinklr.sprintplanning.client.jira.JiraClient;
 import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.enums.StatusCategory;
@@ -63,7 +65,8 @@ class IssueSearchServiceImplTest {
         new JqlBuilder(),
         new JqlMergeHelper(),
         new FilterMergeHelper(),
-        new AnalyticsCalculator());
+        new AnalyticsCalculator(),
+        new PlanningCalculator(new PlanningProperties()));
   }
 
   @Test

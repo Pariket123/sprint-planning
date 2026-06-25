@@ -2,6 +2,7 @@ import { apiClient } from './apiClient'
 import type {
   CreateReleaseRequest,
   ReleaseResponse,
+  UpdateReleaseCapacityRequest,
   UpdateReleaseRequest,
 } from './types'
 
@@ -33,4 +34,12 @@ export function deactivateRelease(
   releaseId: string,
 ): Promise<ReleaseResponse> {
   return apiClient.delete<ReleaseResponse>(`/pods/${podId}/releases/${releaseId}`)
+}
+
+export function updateReleaseCapacity(
+  podId: string,
+  releaseId: string,
+  request: UpdateReleaseCapacityRequest,
+): Promise<ReleaseResponse> {
+  return apiClient.put<ReleaseResponse>(`/pods/${podId}/releases/${releaseId}/capacity`, request)
 }

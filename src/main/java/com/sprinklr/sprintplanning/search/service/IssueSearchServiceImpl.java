@@ -1,6 +1,8 @@
 package com.sprinklr.sprintplanning.search.service;
 
 import com.sprinklr.sprintplanning.analytics.calculator.AnalyticsCalculator;
+import com.sprinklr.sprintplanning.planning.calculator.PlanningCalculator;
+import com.sprinklr.sprintplanning.release.dto.ReleaseCapacitySummaryDto;
 import com.sprinklr.sprintplanning.analytics.dto.AnalyticsResponse;
 import com.sprinklr.sprintplanning.client.jira.JiraClient;
 import com.sprinklr.sprintplanning.common.exception.ApiException;
@@ -38,6 +40,7 @@ public class IssueSearchServiceImpl implements IssueSearchService {
   private final JqlMergeHelper jqlMergeHelper;
   private final FilterMergeHelper filterMergeHelper;
   private final AnalyticsCalculator analyticsCalculator;
+  private final PlanningCalculator planningCalculator;
 
   public IssueSearchServiceImpl(
       TeamService teamService,
@@ -47,7 +50,8 @@ public class IssueSearchServiceImpl implements IssueSearchService {
       JqlBuilder jqlBuilder,
       JqlMergeHelper jqlMergeHelper,
       FilterMergeHelper filterMergeHelper,
-      AnalyticsCalculator analyticsCalculator) {
+      AnalyticsCalculator analyticsCalculator,
+      PlanningCalculator planningCalculator) {
     this.teamService = teamService;
     this.releaseService = releaseService;
     this.jiraClient = jiraClient;
@@ -56,6 +60,7 @@ public class IssueSearchServiceImpl implements IssueSearchService {
     this.jqlMergeHelper = jqlMergeHelper;
     this.filterMergeHelper = filterMergeHelper;
     this.analyticsCalculator = analyticsCalculator;
+    this.planningCalculator = planningCalculator;
   }
 
   @Override
@@ -102,6 +107,29 @@ public class IssueSearchServiceImpl implements IssueSearchService {
         : jiraClient.searchAllIssues(jql.get(), fieldConfig);
 
     return analyticsCalculator.calculate(null, release.getName(), issues, fieldConfig);
+  }
+
+  @Override
+  public ReleaseCapacitySummaryDto calculateReleaseCapacityMetrics(
+      String podId,
+      String releaseId,
+      IssueSearchReleaseRequest request) {
+    PodDocument pod = teamService.getActivePodDocument(podId);
+    ReleaseConfigDocument release = releaseService.getActiveReleaseDocument(podId, releaseId);
+    JiraFieldConfig fieldConfig = jiraConfigMapper.toJiraFieldConfig(pod.getJiraConfig());
+
+    Optional<String> jql = resolveReleaseJql(pod, release, request, fieldConfig);
+    List<IssueView> issues = jql.isEmpty()
+        ? List.of()
+        : jiraClient.searchAllIssues(jql.get(), fieldConfig);
+
+    return planningCalculator.calculateReleaseSummary(
+        releaseId,
+        release.getDurationDays(),
+        release.getStartDate(),
+        release.getCapacity(),
+        release.getLeavePercent() != null ? release.getLeavePercent() : 0.0,
+        issues);
   }
 
   private Optional<String> resolveReleaseJql(

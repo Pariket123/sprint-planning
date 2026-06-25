@@ -3,9 +3,11 @@ package com.sprinklr.sprintplanning.release.model;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.Indexed;
+import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,6 +29,14 @@ public class ReleaseConfigDocument {
   private String description;
 
     private String baseJql;
+
+  private Integer durationDays;
+
+  private LocalDate startDate;
+
+  private List<PersonCapacity> capacity = new ArrayList<>();
+
+  private Double leavePercent = 0.0;
 
     private List<String> fixVersionIncludes = new ArrayList<>();
 
@@ -86,6 +96,38 @@ public class ReleaseConfigDocument {
 
   public void setBaseJql(String baseJql) {
     this.baseJql = baseJql;
+  }
+
+  public Integer getDurationDays() {
+    return durationDays;
+  }
+
+  public void setDurationDays(Integer durationDays) {
+    this.durationDays = durationDays;
+  }
+
+  public LocalDate getStartDate() {
+    return startDate;
+  }
+
+  public void setStartDate(LocalDate startDate) {
+    this.startDate = startDate;
+  }
+
+  public List<PersonCapacity> getCapacity() {
+    return capacity;
+  }
+
+  public void setCapacity(List<PersonCapacity> capacity) {
+    this.capacity = capacity;
+  }
+
+  public Double getLeavePercent() {
+    return leavePercent;
+  }
+
+  public void setLeavePercent(Double leavePercent) {
+    this.leavePercent = leavePercent;
   }
 
   public List<String> getFixVersionIncludes() {

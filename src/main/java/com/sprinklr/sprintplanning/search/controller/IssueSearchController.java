@@ -2,6 +2,7 @@ package com.sprinklr.sprintplanning.search.controller;
 
 import com.sprinklr.sprintplanning.analytics.dto.AnalyticsResponse;
 import com.sprinklr.sprintplanning.common.dto.ApiResponse;
+import com.sprinklr.sprintplanning.release.dto.ReleaseCapacitySummaryDto;
 import com.sprinklr.sprintplanning.search.dto.IssueSearchFilters;
 import com.sprinklr.sprintplanning.search.dto.IssueSearchPageDto;
 import com.sprinklr.sprintplanning.search.dto.IssueSearchReleaseRequest;
@@ -56,5 +57,15 @@ public class IssueSearchController {
       @RequestBody(required = false) IssueSearchReleaseRequest request) {
     return ResponseEntity.ok(ApiResponse.ok(
         issueSearchService.analyzeRelease(podId, releaseId, request)));
+  }
+
+  @PostMapping("/api/v1/pods/{podId}/releases/{releaseId}/capacity/metrics")
+  @Operation(summary = "Compute release capacity metrics using base JQL merged with optional additional JQL")
+  public ResponseEntity<ApiResponse<ReleaseCapacitySummaryDto>> calculateReleaseCapacityMetrics(
+      @PathVariable String podId,
+      @PathVariable String releaseId,
+      @RequestBody(required = false) IssueSearchReleaseRequest request) {
+    return ResponseEntity.ok(ApiResponse.ok(
+        issueSearchService.calculateReleaseCapacityMetrics(podId, releaseId, request)));
   }
 }

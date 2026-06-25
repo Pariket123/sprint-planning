@@ -5,6 +5,7 @@ import type {
   IssueSearchPageDto,
   IssueSearchQueryParams,
   IssueSearchReleaseRequest,
+  ReleaseCapacitySummaryDto,
 } from './types'
 
 function buildSearchQuery(params?: IssueSearchQueryParams): string {
@@ -44,6 +45,17 @@ export function getReleaseIssuesAnalytics(
 ): Promise<AnalyticsResponse> {
   return apiClient.post<AnalyticsResponse>(
     `/pods/${podId}/releases/${releaseId}/issues/analytics`,
+    request ?? {},
+  )
+}
+
+export function getReleaseCapacityMetrics(
+  podId: string,
+  releaseId: string,
+  request?: IssueSearchReleaseRequest | null,
+): Promise<ReleaseCapacitySummaryDto> {
+  return apiClient.post<ReleaseCapacitySummaryDto>(
+    `/pods/${podId}/releases/${releaseId}/capacity/metrics`,
     request ?? {},
   )
 }

@@ -7,11 +7,12 @@ import com.sprinklr.sprintplanning.common.util.IssueAllocationHelper;
 import com.sprinklr.sprintplanning.planning.config.PlanningProperties;
 import com.sprinklr.sprintplanning.planning.dto.CapacityRiskStatus;
 import com.sprinklr.sprintplanning.planning.dto.DomainPlanningMetricsDto;
+import com.sprinklr.sprintplanning.planning.dto.RiskLevel;
+import com.sprinklr.sprintplanning.release.dto.ReleaseCapacitySummaryDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningSummaryDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningValidationResultDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningWarningCode;
 import com.sprinklr.sprintplanning.planning.dto.PlanningWarningDto;
-import com.sprinklr.sprintplanning.planning.dto.RiskLevel;
 import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
 import com.sprinklr.sprintplanning.planning.model.LeaveEntry;
 import com.sprinklr.sprintplanning.planning.model.LeaveType;
@@ -139,6 +140,95 @@ public class PlanningCalculator {
         totalIssueCount,
         domainMetrics,
         riskLevel);
+  }
+
+  public ReleaseCapacitySummaryDto calculateReleaseSummary(
+      String releaseId,
+      Integer durationDays,
+      LocalDate releaseStart,
+      List<PersonCapacity> capacity,
+      double leavePercent,
+      List<IssueView> issues) {
+    int duration = durationDays != null ? Math.max(0, durationDays) : 0;
+    LocalDate releaseEnd = resolveReleaseEnd(releaseStart, duration);
+
+    int workingDays;
+    if (releaseStart != null && releaseEnd != null) {
+      workingDays = countBusinessDays(releaseStart, releaseEnd);
+    } else {
+      workingDays = duration;
+    }
+
+    Set<Domain> planningDomains = new LinkedHashSet<>();
+    addDomainsFromCapacity(planningDomains, capacity);
+    addDomainsFromIssues(planningDomains, issues);
+    if (planningDomains.isEmpty()) {
+      planningDomains.addAll(DEFAULT_DOMAINS);
+    }
+
+    Map<Domain, Double> availableCapacity = calculateAvailableCapacity(
+        capacity, List.of(), releaseStart, releaseEnd, workingDays, planningDomains);
+    double leaveFactor = 1.0 - (Math.min(100.0, Math.max(0.0, leavePercent)) / 100.0);
+    for (Domain domain : planningDomains) {
+      availableCapacity.put(domain, availableCapacity.getOrDefault(domain, 0.0) * leaveFactor);
+    }
+
+    Map<Domain, SelectionMetrics> issueMetrics = calculateIssueMetrics(issues, planningDomains);
+
+    List<DomainPlanningMetricsDto> domainMetrics = new ArrayList<>();
+    double totalAvailable = 0;
+    double totalCommitted = 0;
+    int totalIssueCount = 0;
+
+    for (Domain domain : sortedDomains(planningDomains)) {
+      double available = availableCapacity.getOrDefault(domain, 0.0);
+      SelectionMetrics metrics = issueMetrics.getOrDefault(domain, SelectionMetrics.EMPTY);
+      double committedStoryPoints = metrics.storyPoints();
+      double utilizationPercent = calculateUtilizationPercent(committedStoryPoints, available);
+
+      domainMetrics.add(new DomainPlanningMetricsDto(
+          domain,
+          round(available),
+          0.0,
+          round(committedStoryPoints),
+          metrics.issueCount(),
+          round(available),
+          round(committedStoryPoints),
+          round(utilizationPercent),
+          determineCapacityRisk(committedStoryPoints, available)));
+
+      totalAvailable += available;
+      totalCommitted += committedStoryPoints;
+      totalIssueCount += metrics.issueCount();
+    }
+
+    RiskLevel riskLevel = determineRiskLevel(totalCommitted, totalAvailable);
+
+    return new ReleaseCapacitySummaryDto(
+        releaseId,
+        duration > 0 ? duration : null,
+        round(totalAvailable),
+        round(totalCommitted),
+        totalIssueCount,
+        domainMetrics,
+        riskLevel);
+  }
+
+  LocalDate resolveReleaseEnd(LocalDate start, int durationDays) {
+    if (start == null || durationDays <= 0) {
+      return null;
+    }
+    int counted = 0;
+    LocalDate date = start;
+    while (true) {
+      if (isBusinessDay(date)) {
+        counted++;
+        if (counted >= durationDays) {
+          return date;
+        }
+      }
+      date = date.plusDays(1);
+    }
   }
 
   public PlanningValidationResultDto validate(PlanningSummaryDto summary) {

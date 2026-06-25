@@ -21,8 +21,8 @@ export {
 export { listTeams } from './teamApi'
 export { getPod, listPods } from './podApi'
 export { listActiveAndFutureSprints, listSprints } from './sprintApi'
-export { listReleases, getRelease, createRelease, updateRelease, deactivateRelease } from './releaseApi'
-export { searchIssuesInPod, searchIssuesInRelease, getReleaseIssuesAnalytics } from './issueSearchApi'
+export { listReleases, getRelease, createRelease, updateRelease, deactivateRelease, updateReleaseCapacity } from './releaseApi'
+export { searchIssuesInPod, searchIssuesInRelease, getReleaseIssuesAnalytics, getReleaseCapacityMetrics } from './issueSearchApi'
 export { ApiError } from './types'
 export type {
   AnalyticsResponse,
@@ -60,6 +60,7 @@ export type {
   PodResponse,
   IssueSearchReleaseRequest,
   ReleaseResponse,
+  ReleaseCapacitySummaryDto,
   SprintView,
   StatusCategory,
   StatusDistributionItemDto,

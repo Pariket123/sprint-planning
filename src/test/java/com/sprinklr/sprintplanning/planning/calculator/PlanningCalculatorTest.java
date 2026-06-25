@@ -267,4 +267,48 @@ class PlanningCalculatorTest {
     entry.setDomain(domain);
     return entry;
   }
+
+  @Test
+  void calculatesReleaseSummaryFromDurationDaysAndFilteredIssues() {
+    List<PersonCapacity> capacity = List.of(
+        personCapacity("Alice", Domain.BE, 100.0),
+        personCapacity("Bob", Domain.UI, 50.0));
+
+    List<IssueView> issues = List.of(
+        new IssueView("SCRUM-1", "Backend story", Domain.BE, 8.0, "Story", "To Do", StatusCategory.TODO),
+        new IssueView("SCRUM-2", "UI story", Domain.UI, 4.0, "Story", "To Do", StatusCategory.TODO));
+
+    var summary = calculator.calculateReleaseSummary(
+        "release-1", 10, null, capacity, 0.0, issues);
+
+    assertThat(summary.releaseId()).isEqualTo("release-1");
+    assertThat(summary.durationDays()).isEqualTo(10);
+    assertThat(summary.totalAvailableCapacity()).isEqualTo(15.0);
+    assertThat(summary.totalCommittedStoryPoints()).isEqualTo(12.0);
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.BE).first()
+        .satisfies(be -> {
+          assertThat(be.availableCapacity()).isEqualTo(10.0);
+          assertThat(be.committedStoryPoints()).isEqualTo(8.0);
+          assertThat(be.rollover()).isZero();
+          assertThat(be.capacityRisk()).isEqualTo(CapacityRiskStatus.OK);
+        });
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.UI).first()
+        .satisfies(ui -> {
+          assertThat(ui.availableCapacity()).isEqualTo(5.0);
+          assertThat(ui.committedStoryPoints()).isEqualTo(4.0);
+          assertThat(ui.utilizationPercent()).isEqualTo(80.0);
+        });
+  }
+
+  @Test
+  void appliesReleaseLeavePercentToAllDomainCapacity() {
+    List<PersonCapacity> capacity = List.of(personCapacity("Alice", Domain.BE, 100.0));
+
+    var summary = calculator.calculateReleaseSummary(
+        "release-1", 10, null, capacity, 10.0, List.of());
+
+    assertThat(summary.totalAvailableCapacity()).isEqualTo(9.0);
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.BE).first()
+        .satisfies(be -> assertThat(be.availableCapacity()).isEqualTo(9.0));
+  }
 }
