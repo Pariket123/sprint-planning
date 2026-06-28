@@ -1,25 +1,30 @@
-import type { DomainBreakdownItemDto } from '../../api/types'
-import { formatDomain, formatStoryPoints, sortDomainBreakdown } from '../../utils/format'
+import type { Domain, DomainBreakdownItemDto } from '../../api/types'
+import { formatDomain, formatStoryPoints } from '../../utils/format'
 import { AnalyticsSummaryCard } from '../common'
+
+const ENGINEERING_DOMAINS: Domain[] = ['BE', 'UI', 'AI']
 
 interface DomainStoryPointsSummaryProps {
   items: DomainBreakdownItemDto[]
 }
 
 export function DomainStoryPointsSummary({ items }: DomainStoryPointsSummaryProps) {
-  const sortedItems = sortDomainBreakdown(items)
+  const byDomain = new Map(items.map((item) => [item.domain, item]))
+  const engineeringItems = ENGINEERING_DOMAINS.map((domain) => byDomain.get(domain)).filter(
+    (item): item is DomainBreakdownItemDto => item !== undefined,
+  )
 
-  if (sortedItems.length === 0) {
+  if (engineeringItems.length === 0) {
     return (
       <p className="text-sm text-gray-500">
-        No domain story points found for the selected scope.
+        No engineering story points found for the selected scope.
       </p>
     )
   }
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {sortedItems.map((item) => (
+      {engineeringItems.map((item) => (
         <AnalyticsSummaryCard
           key={item.domain}
           label={`Total ${formatDomain(item.domain)} story points`}

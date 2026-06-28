@@ -1,25 +1,16 @@
 import type { AnalyticsResponse } from '../../api/types'
-import { EmptyState, AnalyticsSummaryCard } from '../common'
+import { AnalyticsSummaryCard } from '../common'
 import { BugsVsFeaturesSection } from './BugsVsFeaturesSection'
 import { DevSubDomainMetricsPanel } from './DevSubDomainMetricsPanel'
-import { DomainBreakdownTable } from './DomainBreakdownTable'
-import { DomainMetricCard } from './DomainMetricCard'
 import { DomainStoryPointsSummary } from './DomainStoryPointsSummary'
 import { StatusDistributionTable } from './StatusDistributionTable'
 import { WorkflowStageDistributionPanel } from './WorkflowStageDistributionPanel'
-import { sortDomainBreakdown } from '../../utils/format'
 
 interface AnalyticsInsightsPanelProps {
   analytics: AnalyticsResponse
-  domainBreakdownDescription: string
 }
 
-export function AnalyticsInsightsPanel({
-  analytics,
-  domainBreakdownDescription,
-}: AnalyticsInsightsPanelProps) {
-  const domainItems = sortDomainBreakdown(analytics.domainBreakdown)
-
+export function AnalyticsInsightsPanel({ analytics }: AnalyticsInsightsPanelProps) {
   return (
     <div className="space-y-6">
       <section>
@@ -72,32 +63,6 @@ export function AnalyticsInsightsPanel({
         <div className="mt-4">
           <BugsVsFeaturesSection data={analytics.bugsVsFeatures} />
         </div>
-      </section>
-
-      <section>
-        <div className="mb-4">
-          <h2 className="text-sm font-semibold text-gray-900">Domain breakdown</h2>
-          <p className="mt-1 text-sm text-gray-600">{domainBreakdownDescription}</p>
-        </div>
-
-        {domainItems.length === 0 ? (
-          <EmptyState
-            title="No domain data"
-            description="Issues in this scope do not have domain mapping."
-          />
-        ) : (
-          <>
-            <div className="grid gap-4 lg:grid-cols-2">
-              {domainItems.map((item) => (
-                <DomainMetricCard key={item.domain} item={item} />
-              ))}
-            </div>
-
-            <div className="mt-4">
-              <DomainBreakdownTable items={domainItems} />
-            </div>
-          </>
-        )}
       </section>
     </div>
   )

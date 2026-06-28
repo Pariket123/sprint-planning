@@ -163,10 +163,7 @@ export function AnalyzeSprintPage() {
       )}
 
       {analytics && !analyticsLoading && !analyticsError && (
-        <AnalyticsInsightsPanel
-          analytics={analytics}
-          domainBreakdownDescription="Domain-wise issue and story point distribution with completion progress."
-        />
+        <AnalyticsInsightsPanel analytics={analytics} />
       )}
     </div>
   )

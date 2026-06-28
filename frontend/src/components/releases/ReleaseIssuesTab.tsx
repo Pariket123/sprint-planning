@@ -323,25 +323,17 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
             </p>
           )}
 
-          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-gray-900">Capacity</h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Add each team member with their domain and bandwidth for this release window.
-            </p>
-            <div className="mt-4">
-              <ReleaseCapacityEditor
-                initialCapacity={releaseConfig.capacity ?? []}
-                initialLeavePercent={releaseConfig.leavePercent ?? 0}
-                onSave={async (capacity, leavePercent) => {
-                  await updateReleaseCapacity(podId, releaseConfig.id, {
-                    capacity,
-                    leavePercent,
-                  })
-                  await handleCapacitySaved()
-                }}
-              />
-            </div>
-          </section>
+          <ReleaseCapacityEditor
+            initialCapacity={releaseConfig.capacity ?? []}
+            initialLeavePercent={releaseConfig.leavePercent ?? 0}
+            onSave={async (capacity, leavePercent) => {
+              await updateReleaseCapacity(podId, releaseConfig.id, {
+                capacity,
+                leavePercent,
+              })
+              await handleCapacitySaved()
+            }}
+          />
 
           <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -397,14 +389,7 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
           )}
 
           {analytics && !analyticsLoading && !analyticsError && (
-            <AnalyticsInsightsPanel
-              analytics={analytics}
-              domainBreakdownDescription={
-                appliedAdditionalJql.trim()
-                  ? 'Domain-wise breakdown for issues matching the release base JQL and your additional filters.'
-                  : 'Domain-wise breakdown for all issues matching the release base JQL.'
-              }
-            />
+            <AnalyticsInsightsPanel analytics={analytics} />
           )}
         </div>
       )}

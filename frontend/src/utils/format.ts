@@ -1,4 +1,4 @@
-import type { Domain, DomainBreakdownItemDto } from '../api/types'
+import type { Domain } from '../api/types'
 
 const DOMAIN_LABELS: Record<Domain, string> = {
   BE: 'Backend',
@@ -11,8 +11,6 @@ const DOMAIN_LABELS: Record<Domain, string> = {
   UNKNOWN: 'Unmapped',
 }
 
-const DOMAIN_DISPLAY_ORDER: Domain[] = ['BE', 'UI', 'AI', 'DEV', 'QA', 'DESIGN', 'PRODUCT', 'UNKNOWN']
-
 export function formatDomain(domain: Domain | string | null | undefined): string {
   if (!domain || domain === 'UNKNOWN') {
     return 'Unmapped'
@@ -21,15 +19,6 @@ export function formatDomain(domain: Domain | string | null | undefined): string
     return DOMAIN_LABELS[domain as Domain]
   }
   return domain
-}
-
-export function sortDomainBreakdown(items: DomainBreakdownItemDto[]): DomainBreakdownItemDto[] {
-  const order = new Map(DOMAIN_DISPLAY_ORDER.map((domain, index) => [domain, index]))
-  return [...items].sort(
-    (left, right) =>
-      (order.get(left.domain) ?? Number.MAX_SAFE_INTEGER) -
-      (order.get(right.domain) ?? Number.MAX_SAFE_INTEGER),
-  )
 }
 
 export function formatStoryPoints(value: number | null | undefined): string {
