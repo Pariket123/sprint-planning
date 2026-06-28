@@ -1,6 +1,8 @@
 package com.sprinklr.sprintplanning.analytics.calculator;
 
 import com.sprinklr.sprintplanning.analytics.dto.AnalyticsResponse;
+import com.sprinklr.sprintplanning.analytics.workflow.WorkflowAnalyticsCalculator;
+import com.sprinklr.sprintplanning.analytics.workflow.WorkflowSectionResolver;
 import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.enums.StatusCategory;
 import com.sprinklr.sprintplanning.common.model.DomainAllocation;
@@ -21,7 +23,7 @@ class AnalyticsCalculatorTest {
 
   @BeforeEach
   void setUp() {
-    calculator = new AnalyticsCalculator();
+    calculator = new AnalyticsCalculator(new WorkflowAnalyticsCalculator(new WorkflowSectionResolver()));
     fieldConfig = new JiraFieldConfig(
         "customfield_10016",
         "customfield_10109",

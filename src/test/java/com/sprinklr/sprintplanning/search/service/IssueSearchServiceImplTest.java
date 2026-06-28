@@ -1,6 +1,8 @@
 package com.sprinklr.sprintplanning.search.service;
 
 import com.sprinklr.sprintplanning.analytics.calculator.AnalyticsCalculator;
+import com.sprinklr.sprintplanning.analytics.workflow.WorkflowAnalyticsCalculator;
+import com.sprinklr.sprintplanning.analytics.workflow.WorkflowSectionResolver;
 import com.sprinklr.sprintplanning.analytics.dto.AnalyticsResponse;
 import com.sprinklr.sprintplanning.planning.calculator.PlanningCalculator;
 import com.sprinklr.sprintplanning.planning.config.PlanningProperties;
@@ -65,7 +67,7 @@ class IssueSearchServiceImplTest {
         new JqlBuilder(),
         new JqlMergeHelper(),
         new FilterMergeHelper(),
-        new AnalyticsCalculator(),
+        new AnalyticsCalculator(new WorkflowAnalyticsCalculator(new WorkflowSectionResolver())),
         new PlanningCalculator(new PlanningProperties()));
   }
 

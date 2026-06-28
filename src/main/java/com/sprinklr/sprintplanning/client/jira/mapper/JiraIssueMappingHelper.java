@@ -26,9 +26,6 @@ import java.util.regex.Pattern;
 @Component
 public class JiraIssueMappingHelper {
 
-  private static final Set<Domain> PER_DOMAIN_STORY_POINT_DOMAINS =
-      EnumSet.of(Domain.BE, Domain.UI, Domain.AI);
-
   private static final Pattern SPRINT_ID_IN_TEXT = Pattern.compile("id=(\\d+)");
   private static final Pattern SPRINT_STATE_IN_TEXT =
       Pattern.compile("state=([A-Za-z_]+)", Pattern.CASE_INSENSITIVE);
@@ -110,16 +107,68 @@ public class JiraIssueMappingHelper {
     return allocations;
   }
 
+  @Named("resolveEngineeringAllocations")
+  public List<DomainAllocation> resolveEngineeringAllocations(JiraIssueDto issue, @Context JiraFieldConfig config) {
+    if (config == null || config.domainStoryPointFields() == null || config.domainStoryPointFields().isEmpty()) {
+      return List.of();
+    }
+    JsonNode fields = issue.getFields();
+    if (fields == null) {
+      return List.of();
+    }
+
+    Set<String> completedOptions = readMultiCheckboxOptions(
+        fields.path(config.domainCompletionFieldId()));
+
+    String jiraDomainValue = config.domainFieldId() != null
+        ? extractFieldValue(fields.path(config.domainFieldId()))
+        : null;
+    List<Domain> selectedDomains = parseDomainsFromSelect(jiraDomainValue, config).stream()
+        .filter(domain -> domain == Domain.BE || domain == Domain.UI || domain == Domain.AI)
+        .distinct()
+        .toList();
+
+    if (selectedDomains.isEmpty()) {
+      selectedDomains = List.of(Domain.BE, Domain.UI, Domain.AI).stream()
+          .filter(domain -> hasPositiveStoryPoints(fields, domain, config))
+          .toList();
+    }
+
+    List<DomainAllocation> allocations = new ArrayList<>();
+    for (Domain domain : selectedDomains) {
+      String storyPointFieldId = config.domainStoryPointFields().get(domain.name());
+      if (storyPointFieldId == null || storyPointFieldId.isBlank()) {
+        continue;
+      }
+      double storyPoints = numberOrZero(readNumberField(fields, storyPointFieldId));
+      boolean completed = isDomainCompleted(domain, completedOptions, config);
+      allocations.add(new DomainAllocation(domain, storyPoints, completed));
+    }
+    return allocations;
+  }
+
+  private boolean hasPositiveStoryPoints(JsonNode fields, Domain domain, JiraFieldConfig config) {
+    String storyPointFieldId = config.domainStoryPointFields().get(domain.name());
+    if (storyPointFieldId == null || storyPointFieldId.isBlank()) {
+      return false;
+    }
+    return numberOrZero(readNumberField(fields, storyPointFieldId)) > 0;
+  }
+
   private double resolveAllocationStoryPoints(JsonNode fields, Domain domain, JiraFieldConfig config) {
-    if (usesPerDomainStoryPoints(domain)) {
+    if (usesPerDomainStoryPoints(domain, config)) {
       String storyPointFieldId = config.domainStoryPointFields().get(domain.name());
       return numberOrZero(readNumberField(fields, storyPointFieldId));
     }
     return numberOrZero(readNumberField(fields, config.storyPointsFieldId()));
   }
 
-  private boolean usesPerDomainStoryPoints(Domain domain) {
-    return domain != null && PER_DOMAIN_STORY_POINT_DOMAINS.contains(domain);
+  private boolean usesPerDomainStoryPoints(Domain domain, JiraFieldConfig config) {
+    if (domain == null || config == null || config.domainStoryPointFields() == null) {
+      return false;
+    }
+    String storyPointFieldId = config.domainStoryPointFields().get(domain.name());
+    return storyPointFieldId != null && !storyPointFieldId.isBlank();
   }
 
   @Named("resolveDomain")
@@ -307,7 +356,15 @@ public class JiraIssueMappingHelper {
   }
 
   @Named("resolveFixVersions")
-  public List<String> resolveFixVersions(JiraIssueDto issue) {
+  public List<String> resolveFixVersions(JiraIssueDto issue, @Context JiraFieldConfig config) {
+    if (config != null && config.fixVersionFieldId() != null && !config.fixVersionFieldId().isBlank()) {
+      String customFixVersion = textOrNull(fieldsOrNull(issue).path(config.fixVersionFieldId()));
+      if (customFixVersion == null || customFixVersion.isBlank()) {
+        return List.of();
+      }
+      return List.of(customFixVersion.trim());
+    }
+
     JsonNode fixVersions = fieldsOrNull(issue).path("fixVersions");
     if (!fixVersions.isArray()) {
       return List.of();

@@ -7,6 +7,7 @@ import com.sprinklr.sprintplanning.planning.dto.CapacityRiskStatus;
 import com.sprinklr.sprintplanning.planning.dto.DomainPlanningMetricsDto;
 import com.sprinklr.sprintplanning.planning.dto.PlannedScopeDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningDataDto;
+import com.sprinklr.sprintplanning.planning.dto.PlanningIssuesPageDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningSummaryDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningValidationResultDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningViewDto;
@@ -59,7 +60,8 @@ class PlanningControllerTest {
         List.of(),
         Map.of(),
         Map.of("DEV", 2.0),
-        List.of(),
+        0,
+        0,
         List.of(),
         List.of(),
         List.of(),
@@ -152,7 +154,8 @@ class PlanningControllerTest {
         List.of(),
         Map.of(),
         Map.of("DEV", 2.0),
-        List.of(),
+        0,
+        0,
         List.of(),
         List.of(),
         List.of(),
@@ -165,6 +168,17 @@ class PlanningControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.domainMetrics[0].committedStoryPoints").value(6.0))
         .andExpect(jsonPath("$.data.domainMetrics[0].capacityRisk").value("OK"));
+  }
+
+  @Test
+  void getPlanningIssuesReturnsEnvelope() throws Exception {
+    when(planningService.getPlanningIssues("pod-1", 10L, 0, 50))
+        .thenReturn(new PlanningIssuesPageDto(List.of(), List.of(), 0, 50, 0, true));
+
+    mockMvc.perform(get("/api/v1/pods/pod-1/sprints/10/planning/issues"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.last").value(true));
   }
 
   @Test

@@ -301,7 +301,7 @@ export function PlanSprintPage() {
             <PlannedScopeTab
               podId={podId}
               jiraSprintId={selectedSprintId}
-              selectedIssueKeys={(planning.selectedIssues ?? []).map((issue) => issue.key)}
+              selectedIssueKeys={planning.selectedIssueKeys ?? []}
               onPlanningUpdated={loadPlanning}
             />
           )}

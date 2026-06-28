@@ -13,7 +13,8 @@ public record IssueView(
         String issueType,
         String status,
         StatusCategory statusCategory,
-        List<DomainAllocation> domainAllocations
+        List<DomainAllocation> domainAllocations,
+        List<DomainAllocation> engineeringAllocations
 ) {
   public IssueView(
       String key,
@@ -23,6 +24,18 @@ public record IssueView(
       String issueType,
       String status,
       StatusCategory statusCategory) {
-    this(key, summary, domain, storyPoints, issueType, status, statusCategory, List.of());
+    this(key, summary, domain, storyPoints, issueType, status, statusCategory, List.of(), List.of());
+  }
+
+  public IssueView(
+      String key,
+      String summary,
+      Domain domain,
+      Double storyPoints,
+      String issueType,
+      String status,
+      StatusCategory statusCategory,
+      List<DomainAllocation> domainAllocations) {
+    this(key, summary, domain, storyPoints, issueType, status, statusCategory, domainAllocations, List.of());
   }
 }

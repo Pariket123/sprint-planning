@@ -1,5 +1,7 @@
 package com.sprinklr.sprintplanning.team.model;
 
+import com.sprinklr.sprintplanning.common.model.WorkflowAnalysisConfig;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -11,6 +13,7 @@ public class PodJiraConfig {
   private List<String> projectKeys = new ArrayList<>();
   private FieldMappings fieldMappings = new FieldMappings();
   private IssueTypeMappings issueTypeMappings = new IssueTypeMappings();
+  private WorkflowAnalysisConfig workflowAnalysis;
 
   public Long getBoardId() {
     return boardId;
@@ -44,6 +47,14 @@ public class PodJiraConfig {
     this.issueTypeMappings = issueTypeMappings;
   }
 
+  public WorkflowAnalysisConfig getWorkflowAnalysis() {
+    return workflowAnalysis;
+  }
+
+  public void setWorkflowAnalysis(WorkflowAnalysisConfig workflowAnalysis) {
+    this.workflowAnalysis = workflowAnalysis;
+  }
+
   public static class FieldMappings {
 
     private String storyPoints;
@@ -54,6 +65,7 @@ public class PodJiraConfig {
     private Map<String, String> domainStoryPointFields = new HashMap<>();
     private String domainCompletionField;
     private Map<String, String> domainCompletionValues = new HashMap<>();
+    private String fixVersion;
 
     public String getStoryPoints() {
       return storyPoints;
@@ -117,6 +129,14 @@ public class PodJiraConfig {
 
     public void setDomainCompletionValues(Map<String, String> domainCompletionValues) {
       this.domainCompletionValues = domainCompletionValues;
+    }
+
+    public String getFixVersion() {
+      return fixVersion;
+    }
+
+    public void setFixVersion(String fixVersion) {
+      this.fixVersion = fixVersion;
     }
   }
 

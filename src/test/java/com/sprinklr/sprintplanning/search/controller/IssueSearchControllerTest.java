@@ -87,7 +87,9 @@ class IssueSearchControllerTest {
             new CategoryMetricsDto(1, 5.0),
             new CategoryMetricsDto(0, 0.0)),
         List.of(),
-        List.of());
+        List.of(),
+        null,
+        null);
 
     when(issueSearchService.analyzeRelease(eq("pod-1"), eq("release-1"), any()))
         .thenReturn(analytics);

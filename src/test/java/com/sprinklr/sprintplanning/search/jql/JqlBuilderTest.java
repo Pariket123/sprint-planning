@@ -42,6 +42,34 @@ class JqlBuilderTest {
   }
 
   @Test
+  void buildsCustomFixVersionClausesWhenConfigured() {
+    JiraFieldConfig configWithFixVersion = new JiraFieldConfig(
+        "customfield_10016",
+        "customfield_10109",
+        "customfield_10020",
+        Map.of("BE", "Backend", "UI", "Frontend"),
+        List.of("Bug"),
+        List.of("Story"),
+        Map.of(),
+        Map.of(),
+        null,
+        Map.of(),
+        "customfield_10183");
+
+    IssueSearchFilters filters = new IssueSearchFilters(
+        null, null, null, List.of(12L, 13L),
+        List.of("Q3 2026"), List.of("Deprecated"),
+        null, null, null, null, null, null);
+
+    Optional<String> jql = jqlBuilder.build(List.of("WFM"), filters, configWithFixVersion);
+
+    assertThat(jql).isPresent();
+    assertThat(jql.get()).contains("cf[10183] IN (\"Q3 2026\")");
+    assertThat(jql.get()).contains("cf[10183] NOT IN (\"Deprecated\")");
+    assertThat(jql.get()).contains("sprint IN (12, 13)");
+  }
+
+  @Test
   void buildsFixVersionAndSprintClauses() {
     IssueSearchFilters filters = new IssueSearchFilters(
         null, null, null, List.of(12L, 13L),
@@ -64,7 +92,7 @@ class JqlBuilderTest {
     Optional<String> jql = jqlBuilder.build(List.of("WFM"), filters, fieldConfig);
 
     assertThat(jql).isPresent();
-    assertThat(jql.get()).contains("cf[10020] IN (\"Backend\", \"Frontend\")");
+    assertThat(jql.get()).contains("cf[10109] IN (\"Backend\", \"Frontend\")");
   }
 
   @Test

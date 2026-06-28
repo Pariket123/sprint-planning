@@ -4,6 +4,7 @@ import type {
   IssueMoveRequest,
   PlannedIssueViewDto,
   PlannedScopeDto,
+  PlanningIssuesPageDto,
   PlanningSummaryDto,
   PlanningValidationResultDto,
   PlanningViewDto,
@@ -19,8 +20,39 @@ function planningPath(podId: string, jiraSprintId: number): string {
   return `/pods/${podId}/sprints/${jiraSprintId}/planning`
 }
 
+const inFlightPlanningRequests = new Map<string, Promise<PlanningViewDto>>()
+
 export function getPlanning(podId: string, jiraSprintId: number): Promise<PlanningViewDto> {
-  return apiClient.get<PlanningViewDto>(planningPath(podId, jiraSprintId))
+  const key = `${podId}:${jiraSprintId}`
+  const existing = inFlightPlanningRequests.get(key)
+  if (existing) {
+    return existing
+  }
+
+  const request = apiClient
+    .get<PlanningViewDto>(planningPath(podId, jiraSprintId))
+    .finally(() => {
+      if (inFlightPlanningRequests.get(key) === request) {
+        inFlightPlanningRequests.delete(key)
+      }
+    })
+  inFlightPlanningRequests.set(key, request)
+  return request
+}
+
+export function getPlanningIssues(
+  podId: string,
+  jiraSprintId: number,
+  startAt = 0,
+  maxResults = 50,
+): Promise<PlanningIssuesPageDto> {
+  const params = new URLSearchParams({
+    startAt: String(startAt),
+    maxResults: String(maxResults),
+  })
+  return apiClient.get<PlanningIssuesPageDto>(
+    `${planningPath(podId, jiraSprintId)}/issues?${params.toString()}`,
+  )
 }
 
 export function getPlanningSummary(

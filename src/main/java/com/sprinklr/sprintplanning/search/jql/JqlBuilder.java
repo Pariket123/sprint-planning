@@ -30,8 +30,8 @@ public class JqlBuilder {
     addInClause(clauses, "component", filters.components());
     addInClause(clauses, "key", filters.issueKeys());
     addInClause(clauses, "assignee", filters.assigneeIds());
-    addInClause(clauses, "fixVersion", filters.fixVersions());
-    addNotInClause(clauses, "fixVersion", filters.fixVersionExcludes());
+    addInClause(clauses, resolveFixVersionField(fieldConfig), filters.fixVersions());
+    addNotInClause(clauses, resolveFixVersionField(fieldConfig), filters.fixVersionExcludes());
 
     if (filters.sprintIds() != null && !filters.sprintIds().isEmpty()) {
       List<String> sprintIds = filters.sprintIds().stream()
@@ -77,6 +77,15 @@ public class JqlBuilder {
     return domains.stream()
         .map(domain -> domainValues.getOrDefault(domain, domain))
         .toList();
+  }
+
+  private String resolveFixVersionField(JiraFieldConfig fieldConfig) {
+    if (fieldConfig != null
+        && fieldConfig.fixVersionFieldId() != null
+        && !fieldConfig.fixVersionFieldId().isBlank()) {
+      return toCustomFieldJqlKey(fieldConfig.fixVersionFieldId());
+    }
+    return "fixVersion";
   }
 
   private String toCustomFieldJqlKey(String fieldId) {

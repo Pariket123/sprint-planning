@@ -72,7 +72,8 @@ class TeamPodSeedRunnerTest {
     verify(podRepository).save(podCaptor.capture());
 
     PodJiraConfig.FieldMappings synced = podCaptor.getValue().getJiraConfig().getFieldMappings();
-    assertThat(synced.getCompositeDomainValues()).containsEntry("BE+UI", "Backend+Ui");
+    assertThat(synced.getCompositeDomainValues()).containsEntry("BE+UI", "Be+Ui");
+    assertThat(synced.getDomainValues()).containsEntry("BE", "Be");
     assertThat(synced.getDomainStoryPointFields()).containsEntry("BE", "customfield_10144");
     assertThat(synced.getDomainCompletionField()).isEqualTo("customfield_10143");
     assertThat(synced.getDomainCompletionValues()).containsEntry("BE", "Be");

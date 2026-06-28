@@ -1,5 +1,8 @@
 package com.sprinklr.sprintplanning.analytics.calculator;
 
+import com.sprinklr.sprintplanning.analytics.dto.DevSubDomainMetricsDto;
+import com.sprinklr.sprintplanning.analytics.dto.WorkflowStageDistributionDto;
+import com.sprinklr.sprintplanning.analytics.workflow.WorkflowAnalyticsCalculator;
 import com.sprinklr.sprintplanning.analytics.dto.AnalyticsResponse;
 import com.sprinklr.sprintplanning.analytics.dto.BugsVsFeaturesDto;
 import com.sprinklr.sprintplanning.analytics.dto.CategoryMetricsDto;
@@ -23,6 +26,12 @@ import java.util.Map;
 
 @Component
 public class AnalyticsCalculator {
+
+  private final WorkflowAnalyticsCalculator workflowAnalyticsCalculator;
+
+  public AnalyticsCalculator(WorkflowAnalyticsCalculator workflowAnalyticsCalculator) {
+    this.workflowAnalyticsCalculator = workflowAnalyticsCalculator;
+  }
 
   public AnalyticsResponse calculate(Long jiraSprintId, String sprintName, List<IssueView> issues,
                                      JiraFieldConfig fieldConfig) {
@@ -87,7 +96,9 @@ public class AnalyticsCalculator {
             features.toDto(),
             other.toDto()),
         toStatusDistribution(statusBuckets),
-        toDomainBreakdown(domainBuckets, totalDomainTouches, totalStoryPoints));
+        toDomainBreakdown(domainBuckets, totalDomainTouches, totalStoryPoints),
+        workflowAnalyticsCalculator.calculateStageDistribution(issues, fieldConfig),
+        workflowAnalyticsCalculator.calculateDevSubDomainMetrics(issues, fieldConfig));
   }
 
   private IssueCategory classifyIssue(IssueView issue, JiraFieldConfig fieldConfig) {

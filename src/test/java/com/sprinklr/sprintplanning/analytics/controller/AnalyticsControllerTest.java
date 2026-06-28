@@ -63,7 +63,9 @@ class AnalyticsControllerTest {
             new CategoryMetricsDto(0, 0.0)),
         List.of(new StatusDistributionItemDto("Done", StatusCategory.DONE, 1, 5.0)),
         List.of(new DomainBreakdownItemDto(
-            Domain.DEV, 2, 10.0, 66.67, 76.92, 1, 5.0, 1, 5.0, 50.0, 50.0)));
+            Domain.DEV, 2, 10.0, 66.67, 76.92, 1, 5.0, 1, 5.0, 50.0, 50.0)),
+        null,
+        null);
 
     when(analyticsService.getSprintAnalytics("pod-1", 10L)).thenReturn(analytics);
 

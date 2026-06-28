@@ -20,6 +20,7 @@ public interface JiraIssueMapper {
   @Mapping(target = "storyPoints", source = ".", qualifiedByName = "resolveStoryPoints")
   @Mapping(target = "domain", source = ".", qualifiedByName = "resolveDomain")
   @Mapping(target = "domainAllocations", source = ".", qualifiedByName = "resolveDomainAllocations")
+  @Mapping(target = "engineeringAllocations", source = ".", qualifiedByName = "resolveEngineeringAllocations")
   IssueView toIssueView(JiraIssueDto issue, @Context JiraFieldConfig config);
 
   List<IssueView> toIssueViews(List<JiraIssueDto> issues, @Context JiraFieldConfig config);

@@ -128,6 +128,9 @@ public class JiraClientImpl implements JiraClient {
     if (fieldConfig.domainCompletionFieldId() != null) {
       fields.add(fieldConfig.domainCompletionFieldId());
     }
+    if (fieldConfig.fixVersionFieldId() != null && !fieldConfig.fixVersionFieldId().isBlank()) {
+      fields.add(fieldConfig.fixVersionFieldId());
+    }
     String sprintFieldId = fieldConfig.sprintFieldId();
     if (sprintFieldId == null || sprintFieldId.isBlank()) {
       sprintFieldId = DEFAULT_SPRINT_FIELD_ID;

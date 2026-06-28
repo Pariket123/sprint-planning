@@ -12,6 +12,7 @@ import com.sprinklr.sprintplanning.planning.config.PlanningProperties;
 import com.sprinklr.sprintplanning.planning.dto.IssueMoveRequest;
 import com.sprinklr.sprintplanning.planning.dto.PlannedIssueViewDto;
 import com.sprinklr.sprintplanning.planning.dto.PlannedScopeDto;
+import com.sprinklr.sprintplanning.planning.dto.PlanningIssuesPageDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningSummaryDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningViewDto;
 import com.sprinklr.sprintplanning.planning.dto.CapacityRiskStatus;
@@ -37,6 +38,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -44,6 +46,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -63,6 +66,8 @@ class PlanningServiceImplTest {
 
   private PlanningService planningService;
 
+  private static final Executor SYNC_EXECUTOR = Runnable::run;
+
   @BeforeEach
   void setUp() {
     PlanningProperties properties = new PlanningProperties();
@@ -72,7 +77,7 @@ class PlanningServiceImplTest {
         new SprintPlanningDocumentAccessor(sprintPlanningRepository);
     planningService = new PlanningServiceImpl(
         teamService, jiraClient, jiraConfigMapper, sprintPlanningRepository,
-        planningDocumentAccessor, calculator, planningMapper, rolloverService);
+        planningDocumentAccessor, calculator, planningMapper, rolloverService, SYNC_EXECUTOR);
   }
 
   @Test
@@ -346,6 +351,68 @@ class PlanningServiceImplTest {
 
     assertThat(view.domainMetrics()).isNotNull();
     assertThat(view.domainMetrics()).isNotEmpty();
+    assertThat(view.sprintIssueCount()).isZero();
+    assertThat(view.selectedIssueCount()).isZero();
+    assertThat(view.selectedIssueKeys()).isEmpty();
+  }
+
+  @Test
+  void getPlanningViewFetchesEachJiraResourceOnce() {
+    PodDocument pod = podWithBoard(101L);
+    when(teamService.getActivePodDocument("pod-1")).thenReturn(pod);
+    when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig());
+
+    SprintPlanningDocument planning = new SprintPlanningDocument();
+    planning.setPodId("pod-1");
+    planning.setJiraSprintId(20L);
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 20L))
+        .thenReturn(List.of(planning));
+
+    SprintView sprint = new SprintView(
+        20L, "Sprint 20", "active",
+        Instant.parse("2026-06-08T00:00:00Z"),
+        Instant.parse("2026-06-12T00:00:00Z"),
+        null);
+    when(jiraClient.getSprint(20L)).thenReturn(sprint);
+    when(jiraClient.getBoardSprints(101L, "closed")).thenReturn(List.of());
+    when(jiraClient.getSprintIssues(eq(20L), any())).thenReturn(List.of());
+    when(rolloverService.getRolloverRecords("pod-1", 20L)).thenReturn(List.of());
+
+    planningService.getPlanningView("pod-1", 20L);
+
+    verify(jiraClient, times(1)).getSprint(20L);
+    verify(jiraClient, times(1)).getSprintIssues(eq(20L), any());
+    verify(jiraClient, times(1)).getBoardSprints(101L, "closed");
+  }
+
+  @Test
+  void getPlanningIssuesReturnsPaginatedSprintIssues() {
+    PodDocument pod = podWithBoard(101L);
+    when(teamService.getActivePodDocument("pod-1")).thenReturn(pod);
+    when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig());
+
+    SprintPlanningDocument planning = new SprintPlanningDocument();
+    planning.setPodId("pod-1");
+    planning.setJiraSprintId(20L);
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 20L))
+        .thenReturn(List.of(planning));
+
+    List<IssueView> sprintIssues = List.of(
+        issue("WFM-1"), issue("WFM-2"), issue("WFM-3"));
+    when(jiraClient.getSprintIssues(eq(20L), any())).thenReturn(sprintIssues);
+
+    PlanningIssuesPageDto page = planningService.getPlanningIssues("pod-1", 20L, 1, 2);
+
+    assertThat(page.sprintIssues()).containsExactly(issue("WFM-2"), issue("WFM-3"));
+    assertThat(page.selectedIssues()).hasSize(3);
+    assertThat(page.sprintIssueTotal()).isEqualTo(3);
+    assertThat(page.startAt()).isEqualTo(1);
+    assertThat(page.maxResults()).isEqualTo(2);
+    assertThat(page.last()).isTrue();
+  }
+
+  private static IssueView issue(String key) {
+    return new IssueView(key, "Summary", Domain.DEV, 2.0, "Story", "Open", StatusCategory.TODO);
   }
 
   private static PodDocument podWithBoard(Long boardId) {

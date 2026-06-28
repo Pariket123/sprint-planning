@@ -1,10 +1,12 @@
 import type { AnalyticsResponse } from '../../api/types'
 import { EmptyState, AnalyticsSummaryCard } from '../common'
 import { BugsVsFeaturesSection } from './BugsVsFeaturesSection'
+import { DevSubDomainMetricsPanel } from './DevSubDomainMetricsPanel'
 import { DomainBreakdownTable } from './DomainBreakdownTable'
 import { DomainMetricCard } from './DomainMetricCard'
 import { DomainStoryPointsSummary } from './DomainStoryPointsSummary'
 import { StatusDistributionTable } from './StatusDistributionTable'
+import { WorkflowStageDistributionPanel } from './WorkflowStageDistributionPanel'
 import { sortDomainBreakdown } from '../../utils/format'
 
 interface AnalyticsInsightsPanelProps {
@@ -33,6 +35,30 @@ export function AnalyticsInsightsPanel({
           <AnalyticsSummaryCard label="Remaining issues" value={analytics.issueCounts.remaining} />
         </div>
       </section>
+
+      {analytics.workflowStageDistribution && (
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h2 className="text-sm font-semibold text-gray-900">Workflow stage distribution</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Current section per issue based on configured workflow statuses.
+          </p>
+          <div className="mt-4">
+            <WorkflowStageDistributionPanel distribution={analytics.workflowStageDistribution} />
+          </div>
+        </section>
+      )}
+
+      {analytics.devSubDomainMetrics && (
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h2 className="text-sm font-semibold text-gray-900">Dev sub-domain completion</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            BE, UI, and AI completion among issues in dev-or-beyond (checkbox or auto-complete in QA+).
+          </p>
+          <div className="mt-4">
+            <DevSubDomainMetricsPanel metrics={analytics.devSubDomainMetrics} />
+          </div>
+        </section>
+      )}
 
       <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <h2 className="text-sm font-semibold text-gray-900">Status distribution</h2>

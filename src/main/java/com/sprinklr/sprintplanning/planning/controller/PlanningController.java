@@ -4,6 +4,7 @@ import com.sprinklr.sprintplanning.common.dto.ApiResponse;
 import com.sprinklr.sprintplanning.planning.dto.PlannedIssueViewDto;
 import com.sprinklr.sprintplanning.planning.dto.PlannedScopeDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningDataDto;
+import com.sprinklr.sprintplanning.planning.dto.PlanningIssuesPageDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningSummaryDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningValidationResultDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningViewDto;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -41,11 +43,22 @@ public class PlanningController {
   }
 
   @GetMapping
-  @Operation(summary = "Get merged planning view with Jira sprint issues and persisted inputs")
+  @Operation(summary = "Get planning shell with metrics and persisted inputs (issues loaded separately)")
   public ResponseEntity<ApiResponse<PlanningViewDto>> getPlanning(
       @PathVariable String podId,
       @PathVariable Long jiraSprintId) {
     return ResponseEntity.ok(ApiResponse.ok(planningService.getPlanningView(podId, jiraSprintId)));
+  }
+
+  @GetMapping("/issues")
+  @Operation(summary = "Get paginated sprint and selected issues for the issues tab")
+  public ResponseEntity<ApiResponse<PlanningIssuesPageDto>> getPlanningIssues(
+      @PathVariable String podId,
+      @PathVariable Long jiraSprintId,
+      @RequestParam(defaultValue = "0") int startAt,
+      @RequestParam(defaultValue = "50") int maxResults) {
+    return ResponseEntity.ok(ApiResponse.ok(
+        planningService.getPlanningIssues(podId, jiraSprintId, startAt, maxResults)));
   }
 
   @PutMapping("/capacity")

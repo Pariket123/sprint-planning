@@ -17,18 +17,20 @@
               "domain": "customfield_10109",
               "sprint": "customfield_10020",
               "domainValues": {
-                "DEV": "Dev",
-                "QA": "QA",
-                "DESIGN": "Design",
-                "BE": "Backend",
+                "BE": "Be",
                 "UI": "Ui",
                 "AI": "Ai"
               },
               "compositeDomainValues": {
-                "BE+UI": "Backend+Ui",
-                "BE+AI": "Backend+Ai"
+                "BE+UI": "Be+Ui",
+                "BE+AI": "Be+Ai",
+                "BE+UI+AI": "Be+Ui+Ai",
+                "AI+UI": "Ai+Ui"
               },
               "domainStoryPointFields": {
+                "DEV": "customfield_10179",
+                "QA": "customfield_10181",
+                "DESIGN": "customfield_10180",
                 "BE": "customfield_10144",
                 "UI": "customfield_10146",
                 "AI": "customfield_10145"
@@ -38,11 +40,73 @@
                 "BE": "Be",
                 "UI": "Ui",
                 "AI": "Ai"
-              }
+              },
+              "fixVersion": "customfield_10183"
             },
             "issueTypeMappings": {
               "bugs": ["Bug", "Defect"],
               "features": ["Story", "Task", "Epic"]
+            },
+            "workflowAnalysis": {
+              "sections": [
+                {
+                  "key": "IN_REQUIREMENT",
+                  "label": "In Requirement",
+                  "statuses": ["REQUIREMENT", "NEED CONFIRMATION"]
+                },
+                {
+                  "key": "IN_DESIGN",
+                  "label": "In Design",
+                  "statuses": ["BACKLOG(DESIGN)", "DESIGN IN PROGRESS", "DESIGN REVIEW"]
+                },
+                {
+                  "key": "DEV_BACKLOG",
+                  "label": "Dev Backlog",
+                  "statuses": ["BACKLOG(DEV)", "QA SCENARIOS", "QA REJECTED"]
+                },
+                {
+                  "key": "DEV_IN_PROGRESS",
+                  "label": "Dev In Progress",
+                  "statuses": ["IN PROGRESS", "IN DEV REVIEW"]
+                },
+                {
+                  "key": "IN_QA",
+                  "label": "In QA",
+                  "statuses": [
+                    "WAITING FOR BUILD",
+                    "READY FOR QA",
+                    "QA IN PROGRESS",
+                    "QA BLOCKED",
+                    "WAITING FOR BUG FIXES"
+                  ]
+                },
+                {
+                  "key": "COMPLETED",
+                  "label": "Completed",
+                  "statuses": [
+                    "QA VERIFIED(MAIN)",
+                    "READY FOR MERGE",
+                    "MERGED",
+                    "READY FOR PRODUCTION",
+                    "CLOSED",
+                    "ARCHIVE"
+                  ]
+                }
+              ],
+              "devSubDomain": {
+                "subDomainPoolSections": [
+                  "DEV_BACKLOG",
+                  "DEV_IN_PROGRESS",
+                  "IN_QA",
+                  "COMPLETED"
+                ],
+                "autoCompleteSections": ["IN_QA", "COMPLETED"],
+                "completionCheckboxValues": {
+                  "BE": "Be",
+                  "UI": "Ui",
+                  "AI": "Ai"
+                }
+              }
             }
           }
         },
@@ -58,18 +122,20 @@
               "domain": "customfield_10109",
               "sprint": "customfield_10020",
               "domainValues": {
-                "DEV": "Dev",
-                "QA": "QA",
-                "DESIGN": "Design",
-                "BE": "Backend",
+                "BE": "Be",
                 "UI": "Ui",
                 "AI": "Ai"
               },
               "compositeDomainValues": {
-                "BE+UI": "Backend+Ui",
-                "BE+AI": "Backend+Ai"
+                "BE+UI": "Be+Ui",
+                "BE+AI": "Be+Ai",
+                "BE+UI+AI": "Be+Ui+Ai",
+                "AI+UI": "Ai+Ui"
               },
               "domainStoryPointFields": {
+                "DEV": "customfield_10179",
+                "QA": "customfield_10181",
+                "DESIGN": "customfield_10180",
                 "BE": "customfield_10144",
                 "UI": "customfield_10146",
                 "AI": "customfield_10145"
@@ -79,11 +145,73 @@
                 "BE": "Be",
                 "UI": "Ui",
                 "AI": "Ai"
-              }
+              },
+              "fixVersion": "customfield_10183"
             },
             "issueTypeMappings": {
               "bugs": ["Bug", "Defect"],
               "features": ["Story", "Task", "Epic"]
+            },
+            "workflowAnalysis": {
+              "sections": [
+                {
+                  "key": "IN_REQUIREMENT",
+                  "label": "In Requirement",
+                  "statuses": ["REQUIREMENT", "NEED CONFIRMATION"]
+                },
+                {
+                  "key": "IN_DESIGN",
+                  "label": "In Design",
+                  "statuses": ["BACKLOG(DESIGN)", "DESIGN IN PROGRESS", "DESIGN REVIEW"]
+                },
+                {
+                  "key": "DEV_BACKLOG",
+                  "label": "Dev Backlog",
+                  "statuses": ["BACKLOG(DEV)", "QA SCENARIOS", "QA REJECTED"]
+                },
+                {
+                  "key": "DEV_IN_PROGRESS",
+                  "label": "Dev In Progress",
+                  "statuses": ["IN PROGRESS", "IN DEV REVIEW"]
+                },
+                {
+                  "key": "IN_QA",
+                  "label": "In QA",
+                  "statuses": [
+                    "WAITING FOR BUILD",
+                    "READY FOR QA",
+                    "QA IN PROGRESS",
+                    "QA BLOCKED",
+                    "WAITING FOR BUG FIXES"
+                  ]
+                },
+                {
+                  "key": "COMPLETED",
+                  "label": "Completed",
+                  "statuses": [
+                    "QA VERIFIED(MAIN)",
+                    "READY FOR MERGE",
+                    "MERGED",
+                    "READY FOR PRODUCTION",
+                    "CLOSED",
+                    "ARCHIVE"
+                  ]
+                }
+              ],
+              "devSubDomain": {
+                "subDomainPoolSections": [
+                  "DEV_BACKLOG",
+                  "DEV_IN_PROGRESS",
+                  "IN_QA",
+                  "COMPLETED"
+                ],
+                "autoCompleteSections": ["IN_QA", "COMPLETED"],
+                "completionCheckboxValues": {
+                  "BE": "Be",
+                  "UI": "Ui",
+                  "AI": "Ai"
+                }
+              }
             }
           }
         },
@@ -99,18 +227,20 @@
               "domain": "customfield_10109",
               "sprint": "customfield_10020",
               "domainValues": {
-                "DEV": "Dev",
-                "QA": "QA",
-                "DESIGN": "Design",
-                "BE": "Backend",
+                "BE": "Be",
                 "UI": "Ui",
                 "AI": "Ai"
               },
               "compositeDomainValues": {
-                "BE+UI": "Backend+Ui",
-                "BE+AI": "Backend+Ai"
+                "BE+UI": "Be+Ui",
+                "BE+AI": "Be+Ai",
+                "BE+UI+AI": "Be+Ui+Ai",
+                "AI+UI": "Ai+Ui"
               },
               "domainStoryPointFields": {
+                "DEV": "customfield_10179",
+                "QA": "customfield_10181",
+                "DESIGN": "customfield_10180",
                 "BE": "customfield_10144",
                 "UI": "customfield_10146",
                 "AI": "customfield_10145"
@@ -120,11 +250,73 @@
                 "BE": "Be",
                 "UI": "Ui",
                 "AI": "Ai"
-              }
+              },
+              "fixVersion": "customfield_10183"
             },
             "issueTypeMappings": {
               "bugs": ["Bug", "Defect"],
               "features": ["Story", "Task", "Epic"]
+            },
+            "workflowAnalysis": {
+              "sections": [
+                {
+                  "key": "IN_REQUIREMENT",
+                  "label": "In Requirement",
+                  "statuses": ["REQUIREMENT", "NEED CONFIRMATION"]
+                },
+                {
+                  "key": "IN_DESIGN",
+                  "label": "In Design",
+                  "statuses": ["BACKLOG(DESIGN)", "DESIGN IN PROGRESS", "DESIGN REVIEW"]
+                },
+                {
+                  "key": "DEV_BACKLOG",
+                  "label": "Dev Backlog",
+                  "statuses": ["BACKLOG(DEV)", "QA SCENARIOS", "QA REJECTED"]
+                },
+                {
+                  "key": "DEV_IN_PROGRESS",
+                  "label": "Dev In Progress",
+                  "statuses": ["IN PROGRESS", "IN DEV REVIEW"]
+                },
+                {
+                  "key": "IN_QA",
+                  "label": "In QA",
+                  "statuses": [
+                    "WAITING FOR BUILD",
+                    "READY FOR QA",
+                    "QA IN PROGRESS",
+                    "QA BLOCKED",
+                    "WAITING FOR BUG FIXES"
+                  ]
+                },
+                {
+                  "key": "COMPLETED",
+                  "label": "Completed",
+                  "statuses": [
+                    "QA VERIFIED(MAIN)",
+                    "READY FOR MERGE",
+                    "MERGED",
+                    "READY FOR PRODUCTION",
+                    "CLOSED",
+                    "ARCHIVE"
+                  ]
+                }
+              ],
+              "devSubDomain": {
+                "subDomainPoolSections": [
+                  "DEV_BACKLOG",
+                  "DEV_IN_PROGRESS",
+                  "IN_QA",
+                  "COMPLETED"
+                ],
+                "autoCompleteSections": ["IN_QA", "COMPLETED"],
+                "completionCheckboxValues": {
+                  "BE": "Be",
+                  "UI": "Ui",
+                  "AI": "Ai"
+                }
+              }
             }
           }
         }

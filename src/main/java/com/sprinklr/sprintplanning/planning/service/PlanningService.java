@@ -6,6 +6,7 @@ import com.sprinklr.sprintplanning.planning.dto.BacklogPageDto;
 import com.sprinklr.sprintplanning.planning.dto.IssueMoveRequest;
 import com.sprinklr.sprintplanning.planning.dto.PlannedIssueViewDto;
 import com.sprinklr.sprintplanning.planning.dto.PlannedScopeDto;
+import com.sprinklr.sprintplanning.planning.dto.PlanningIssuesPageDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningSummaryDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningValidationResultDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningViewDto;
@@ -39,6 +40,8 @@ public interface PlanningService {
   List<IssueView> resolveSelectedIssues(String podId, Long jiraSprintId);
 
   PlanningViewDto getPlanningView(String podId, Long jiraSprintId);
+
+  PlanningIssuesPageDto getPlanningIssues(String podId, Long jiraSprintId, int startAt, int maxResults);
 
   PlannedScopeDto getPlannedScope(String podId, Long jiraSprintId);
 

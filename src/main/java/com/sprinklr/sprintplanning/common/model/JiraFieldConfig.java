@@ -17,7 +17,9 @@ public record JiraFieldConfig(
     Map<String, String> compositeDomainValues,
     Map<String, String> domainStoryPointFields,
     String domainCompletionFieldId,
-    Map<String, String> domainCompletionValues
+    Map<String, String> domainCompletionValues,
+    String fixVersionFieldId,
+    WorkflowAnalysisConfig workflowAnalysis
 ) {
   public JiraFieldConfig(
       String storyPointsFieldId,
@@ -36,7 +38,62 @@ public record JiraFieldConfig(
         Map.of(),
         Map.of(),
         null,
-        Map.of());
+        Map.of(),
+        null,
+        null);
+  }
+
+  public JiraFieldConfig(
+      String storyPointsFieldId,
+      String domainFieldId,
+      String sprintFieldId,
+      Map<String, String> domainValues,
+      List<String> bugIssueTypes,
+      List<String> featureIssueTypes,
+      Map<String, String> compositeDomainValues,
+      Map<String, String> domainStoryPointFields,
+      String domainCompletionFieldId,
+      Map<String, String> domainCompletionValues) {
+    this(
+        storyPointsFieldId,
+        domainFieldId,
+        sprintFieldId,
+        domainValues,
+        bugIssueTypes,
+        featureIssueTypes,
+        compositeDomainValues,
+        domainStoryPointFields,
+        domainCompletionFieldId,
+        domainCompletionValues,
+        null,
+        null);
+  }
+
+  public JiraFieldConfig(
+      String storyPointsFieldId,
+      String domainFieldId,
+      String sprintFieldId,
+      Map<String, String> domainValues,
+      List<String> bugIssueTypes,
+      List<String> featureIssueTypes,
+      Map<String, String> compositeDomainValues,
+      Map<String, String> domainStoryPointFields,
+      String domainCompletionFieldId,
+      Map<String, String> domainCompletionValues,
+      String fixVersionFieldId) {
+    this(
+        storyPointsFieldId,
+        domainFieldId,
+        sprintFieldId,
+        domainValues,
+        bugIssueTypes,
+        featureIssueTypes,
+        compositeDomainValues,
+        domainStoryPointFields,
+        domainCompletionFieldId,
+        domainCompletionValues,
+        fixVersionFieldId,
+        null);
   }
 
   public boolean hasMultiDomainSupport() {

@@ -2,6 +2,7 @@ export { apiClient } from './apiClient'
 export { getSprintAnalytics } from './analyticsApi'
 export {
   getPlanning,
+  getPlanningIssues,
   getPlanningSummary,
   updateCapacity,
   updateLeaves,
@@ -41,6 +42,7 @@ export type {
   IssueView,
   LeaveEntry,
   PlanningOverride,
+  PlanningIssuesPageDto,
   PlanningSummaryDto,
   PlanningValidationResultDto,
   PlanningViewDto,

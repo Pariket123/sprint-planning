@@ -21,6 +21,8 @@ public interface JiraConfigMapper {
   @Mapping(target = "domainStoryPointFields", source = "fieldMappings.domainStoryPointFields", qualifiedByName = "nullSafeMap")
   @Mapping(target = "domainCompletionFieldId", source = "fieldMappings.domainCompletionField")
   @Mapping(target = "domainCompletionValues", source = "fieldMappings.domainCompletionValues", qualifiedByName = "nullSafeMap")
+  @Mapping(target = "fixVersionFieldId", source = "fieldMappings.fixVersion")
+  @Mapping(target = "workflowAnalysis", source = "workflowAnalysis")
   @Mapping(target = "bugIssueTypes", source = "issueTypeMappings.bugs", qualifiedByName = "nullSafeList")
   @Mapping(target = "featureIssueTypes", source = "issueTypeMappings.features", qualifiedByName = "nullSafeList")
   JiraFieldConfig toJiraFieldConfig(PodJiraConfig config);

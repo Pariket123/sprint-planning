@@ -207,6 +207,34 @@ export interface DomainBreakdownItemDto {
   storyPointCompletionPercentage: number
 }
 
+export interface WorkflowStageSectionItemDto {
+  key: string
+  label: string
+  count: number
+  totalIssues: number
+  ratio: number
+}
+
+export interface WorkflowStageDistributionDto {
+  totalIssues: number
+  sections: WorkflowStageSectionItemDto[]
+}
+
+export interface DevSubDomainItemDto {
+  domain: Domain
+  applicableIssueCount: number
+  completedIssueCount: number
+  issueCompletionRatio: number
+  totalStoryPoints: number
+  completedStoryPoints: number
+  storyPointCompletionRatio: number
+}
+
+export interface DevSubDomainMetricsDto {
+  subDomainPoolIssueCount: number
+  subDomains: DevSubDomainItemDto[]
+}
+
 export interface AnalyticsResponse {
   jiraSprintId: number
   sprintName: string
@@ -217,6 +245,8 @@ export interface AnalyticsResponse {
   bugsVsFeatures: BugsVsFeaturesDto
   statusDistribution: StatusDistributionItemDto[]
   domainBreakdown: DomainBreakdownItemDto[]
+  workflowStageDistribution: WorkflowStageDistributionDto | null
+  devSubDomainMetrics: DevSubDomainMetricsDto | null
 }
 
 export type CapacityRiskStatus = 'OK' | 'NEAR_CAPACITY' | 'OVER_CAPACITY'
@@ -288,12 +318,22 @@ export interface PlanningViewDto {
   overrides: PlanningOverride[]
   rolloverStoryPoints: Record<string, number>
   resolvedRollover: Record<string, number>
-  sprintIssues: IssueView[]
-  selectedIssues: IssueView[]
+  sprintIssueCount: number
+  selectedIssueCount: number
+  selectedIssueKeys: string[]
   plannedIssueKeys: string[]
   committedIssueKeys: string[]
   rolloverIssues: RolloverIssueDto[]
   domainMetrics: DomainPlanningMetricsDto[]
+}
+
+export interface PlanningIssuesPageDto {
+  sprintIssues: IssueView[]
+  selectedIssues: IssueView[]
+  startAt: number
+  maxResults: number
+  sprintIssueTotal: number
+  last: boolean
 }
 
 export interface PlanningSummaryDto {

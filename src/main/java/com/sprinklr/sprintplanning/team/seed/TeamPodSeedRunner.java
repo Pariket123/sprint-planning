@@ -149,10 +149,19 @@ public class TeamPodSeedRunner implements ApplicationRunner {
         currentMappings::getDomainCompletionField,
         currentMappings::setDomainCompletionField,
         seedMappings.getDomainCompletionField());
+    changed |= updateIfDifferent(
+        currentMappings::getFixVersion,
+        currentMappings::setFixVersion,
+        seedMappings.getFixVersion());
     changed |= updateMapIfDifferent(
         currentMappings::getDomainCompletionValues,
         currentMappings::setDomainCompletionValues,
         seedMappings.getDomainCompletionValues());
+    if (seedConfig.getWorkflowAnalysis() != null
+        && !seedConfig.getWorkflowAnalysis().equals(currentConfig.getWorkflowAnalysis())) {
+      currentConfig.setWorkflowAnalysis(seedConfig.getWorkflowAnalysis());
+      changed = true;
+    }
     return changed;
   }
 

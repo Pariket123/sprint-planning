@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
-import { ApiError, moveIssuesToBacklog, moveIssuesToSprint } from '../../api'
-import type { PlanningViewDto } from '../../api/types'
+import { ApiError, getPlanningIssues, moveIssuesToBacklog, moveIssuesToSprint } from '../../api'
+import type { PlanningIssuesPageDto, PlanningViewDto } from '../../api/types'
+import { LoadingState } from '../common'
 import { PlanningIssueTable } from './PlanningIssueTable'
 
 interface IssuesTabProps {
@@ -12,13 +13,35 @@ interface IssuesTabProps {
 }
 
 export function IssuesTab({ podId, jiraSprintId, planning, onPlanningUpdated }: IssuesTabProps) {
+  const [issuesPage, setIssuesPage] = useState<PlanningIssuesPageDto | null>(null)
+  const [issuesLoading, setIssuesLoading] = useState(true)
+  const [issuesError, setIssuesError] = useState<string | null>(null)
   const [sprintSelected, setSprintSelected] = useState<string[]>([])
   const [moving, setMoving] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [addToPlannedScope, setAddToPlannedScope] = useState(true)
 
-  const sprintIssues = planning.sprintIssues ?? []
-  const selectedIssues = planning.selectedIssues ?? []
+  const loadIssues = useCallback(async () => {
+    setIssuesLoading(true)
+    setIssuesError(null)
+
+    try {
+      const page = await getPlanningIssues(podId, jiraSprintId)
+      setIssuesPage(page)
+    } catch (err) {
+      setIssuesPage(null)
+      setIssuesError(err instanceof ApiError ? err.message : 'Failed to load sprint issues.')
+    } finally {
+      setIssuesLoading(false)
+    }
+  }, [podId, jiraSprintId])
+
+  useEffect(() => {
+    void loadIssues()
+  }, [loadIssues])
+
+  const sprintIssues = issuesPage?.sprintIssues ?? []
+  const selectedIssues = issuesPage?.selectedIssues ?? []
 
   const handleMoveToBacklog = async () => {
     if (sprintSelected.length === 0) {
@@ -31,6 +54,7 @@ export function IssuesTab({ podId, jiraSprintId, planning, onPlanningUpdated }: 
       await moveIssuesToBacklog(podId, { issueKeys: sprintSelected })
       setSprintSelected([])
       await onPlanningUpdated()
+      await loadIssues()
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Failed to move issues to backlog.')
     } finally {
@@ -52,11 +76,24 @@ export function IssuesTab({ podId, jiraSprintId, planning, onPlanningUpdated }: 
       })
       setSprintSelected([])
       await onPlanningUpdated()
+      await loadIssues()
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Failed to commit issues.')
     } finally {
       setMoving(false)
     }
+  }
+
+  if (issuesLoading) {
+    return <LoadingState message="Loading sprint issues..." />
+  }
+
+  if (issuesError) {
+    return (
+      <p className="text-sm text-red-600" role="alert">
+        {issuesError}
+      </p>
+    )
   }
 
   return (
@@ -99,7 +136,7 @@ export function IssuesTab({ podId, jiraSprintId, planning, onPlanningUpdated }: 
       <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <PlanningIssueTable
           issues={sprintIssues}
-          title="Sprint issues"
+          title={`Sprint issues (${issuesPage?.sprintIssueTotal ?? sprintIssues.length})`}
           selectable
           selectedKeys={sprintSelected}
           onSelectionChange={setSprintSelected}
@@ -107,7 +144,10 @@ export function IssuesTab({ podId, jiraSprintId, planning, onPlanningUpdated }: 
       </section>
 
       <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <PlanningIssueTable issues={selectedIssues} title="Selected issues (planning view)" />
+        <PlanningIssueTable
+          issues={selectedIssues}
+          title={`Selected issues (${planning.selectedIssueCount ?? selectedIssues.length})`}
+        />
       </section>
 
       {(planning.committedIssueKeys ?? []).length > 0 && (

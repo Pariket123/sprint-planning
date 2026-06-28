@@ -1,5 +1,7 @@
 package com.sprinklr.sprintplanning.analytics.dto;
 
+import com.sprinklr.sprintplanning.analytics.dto.DevSubDomainMetricsDto;
+import com.sprinklr.sprintplanning.analytics.dto.WorkflowStageDistributionDto;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.List;
@@ -14,6 +16,8 @@ public record AnalyticsResponse(
     IssueCountsDto issueCounts,
     BugsVsFeaturesDto bugsVsFeatures,
     List<StatusDistributionItemDto> statusDistribution,
-    List<DomainBreakdownItemDto> domainBreakdown
+    List<DomainBreakdownItemDto> domainBreakdown,
+    WorkflowStageDistributionDto workflowStageDistribution,
+    DevSubDomainMetricsDto devSubDomainMetrics
 ) {
 }
