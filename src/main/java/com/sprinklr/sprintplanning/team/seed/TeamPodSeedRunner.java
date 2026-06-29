@@ -15,6 +15,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
@@ -102,7 +103,7 @@ public class TeamPodSeedRunner implements ApplicationRunner {
         PodJiraConfig seedConfig = objectMapper.treeToValue(podNode.path("jiraConfig"), PodJiraConfig.class);
         PodDocument pod = existingPod.get();
         PodJiraConfig currentConfig = pod.getJiraConfig() != null ? pod.getJiraConfig() : new PodJiraConfig();
-        if (mergeFieldMappings(currentConfig, seedConfig)) {
+        if (mergeJiraConfig(currentConfig, seedConfig)) {
           pod.setJiraConfig(currentConfig);
           podRepository.save(pod);
           updatedPods++;
@@ -115,6 +116,27 @@ public class TeamPodSeedRunner implements ApplicationRunner {
     } else {
       log.debug("No pod Jira field mappings required syncing");
     }
+  }
+
+  private boolean mergeJiraConfig(PodJiraConfig currentConfig, PodJiraConfig seedConfig) throws Exception {
+    if (seedConfig == null) {
+      return false;
+    }
+
+    boolean changed = mergeFieldMappings(currentConfig, seedConfig);
+
+    if (seedConfig.getBoardId() != null && !seedConfig.getBoardId().equals(currentConfig.getBoardId())) {
+      currentConfig.setBoardId(seedConfig.getBoardId());
+      changed = true;
+    }
+
+    if (seedConfig.getProjectKeys() != null
+        && !seedConfig.getProjectKeys().equals(currentConfig.getProjectKeys())) {
+      currentConfig.setProjectKeys(new ArrayList<>(seedConfig.getProjectKeys()));
+      changed = true;
+    }
+
+    return changed;
   }
 
   private boolean mergeFieldMappings(PodJiraConfig currentConfig, PodJiraConfig seedConfig) throws Exception {

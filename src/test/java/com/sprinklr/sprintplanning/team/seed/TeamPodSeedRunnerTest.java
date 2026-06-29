@@ -77,6 +77,38 @@ class TeamPodSeedRunnerTest {
     assertThat(synced.getDomainStoryPointFields()).containsEntry("BE", "customfield_10144");
     assertThat(synced.getDomainCompletionField()).isEqualTo("customfield_10143");
     assertThat(synced.getDomainCompletionValues()).containsEntry("BE", "Be");
+    assertThat(podCaptor.getValue().getJiraConfig().getBoardId()).isEqualTo(1L);
+    assertThat(podCaptor.getValue().getJiraConfig().getProjectKeys()).containsExactly("SCRUM");
+  }
+
+  @Test
+  void syncsBoardIdAndProjectKeysOnStartupWhenTeamsAlreadyExist() throws Exception {
+    TeamDocument team = new TeamDocument();
+    team.setId("team-1");
+    team.setCode("WFM");
+
+    PodDocument pod = new PodDocument();
+    pod.setId("pod-1");
+    pod.setTeamId("team-1");
+    pod.setCode("FORECASTING");
+    PodJiraConfig jiraConfig = new PodJiraConfig();
+    jiraConfig.setBoardId(101L);
+    jiraConfig.setProjectKeys(new java.util.ArrayList<>(java.util.List.of("WFM")));
+    pod.setJiraConfig(jiraConfig);
+
+    when(teamRepository.count()).thenReturn(1L);
+    when(teamRepository.findByCode("WFM")).thenReturn(Optional.of(team));
+    when(podRepository.findByTeamIdAndCode("team-1", "FORECASTING")).thenReturn(Optional.of(pod));
+    when(podRepository.findByTeamIdAndCode("team-1", "REPORTING")).thenReturn(Optional.empty());
+    when(podRepository.findByTeamIdAndCode("team-1", "CONFIGURATION")).thenReturn(Optional.empty());
+
+    seedRunner.run(new DefaultApplicationArguments());
+
+    ArgumentCaptor<PodDocument> podCaptor = ArgumentCaptor.forClass(PodDocument.class);
+    verify(podRepository).save(podCaptor.capture());
+
+    assertThat(podCaptor.getValue().getJiraConfig().getBoardId()).isEqualTo(1L);
+    assertThat(podCaptor.getValue().getJiraConfig().getProjectKeys()).containsExactly("SCRUM");
   }
 
   @Test

@@ -10,8 +10,8 @@
           "name": "Forecasting",
           "active": true,
           "jiraConfig": {
-            "boardId": 101,
-            "projectKeys": ["WFM"],
+            "boardId": 1,
+            "projectKeys": ["SCRUM"],
             "fieldMappings": {
               "storyPoints": "customfield_10016",
               "domain": "customfield_10109",
@@ -115,8 +115,8 @@
           "name": "Reporting",
           "active": true,
           "jiraConfig": {
-            "boardId": 102,
-            "projectKeys": ["WFM"],
+            "boardId": 1,
+            "projectKeys": ["SCRUM"],
             "fieldMappings": {
               "storyPoints": "customfield_10016",
               "domain": "customfield_10109",
@@ -220,8 +220,8 @@
           "name": "Configuration",
           "active": true,
           "jiraConfig": {
-            "boardId": 103,
-            "projectKeys": ["WFM"],
+            "boardId": 1,
+            "projectKeys": ["SCRUM"],
             "fieldMappings": {
               "storyPoints": "customfield_10016",
               "domain": "customfield_10109",
