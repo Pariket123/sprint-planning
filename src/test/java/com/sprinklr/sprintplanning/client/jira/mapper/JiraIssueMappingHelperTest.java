@@ -411,6 +411,56 @@ class JiraIssueMappingHelperTest {
             new com.sprinklr.sprintplanning.common.model.DomainAllocation(Domain.AI, 1.0, false));
   }
 
+  @Test
+  void resolvesDomainAllocationsFromStageStoryPointFieldsAndEngineeringDropdown() throws Exception {
+    JiraFieldConfig config = new JiraFieldConfig(
+        "customfield_10016",
+        "customfield_10109",
+        "customfield_10020",
+        Map.of("BE", "Be", "UI", "Ui", "AI", "Ai"),
+        List.of("Bug"),
+        List.of("Story"),
+        Map.of("BE+UI", "Be+Ui"),
+        Map.of(
+            "DEV", "customfield_10179",
+            "QA", "customfield_10181",
+            "DESIGN", "customfield_10180",
+            "BE", "customfield_10144",
+            "UI", "customfield_10146",
+            "AI", "customfield_10145"),
+        "customfield_10143",
+        Map.of("BE", "Be", "UI", "Ui", "AI", "Ai"));
+
+    JiraIssueDto issue = readIssue("""
+        {
+          "key": "SCRUM-30",
+          "fields": {
+            "summary": "Workflow issue",
+            "issuetype": { "name": "Story" },
+            "status": {
+              "name": "BACKLOG(DEV)",
+              "statusCategory": { "key": "new" }
+            },
+            "customfield_10109": { "value": "Be+Ui" },
+            "customfield_10179": 2,
+            "customfield_10181": 3,
+            "customfield_10180": 1,
+            "customfield_10144": 5,
+            "customfield_10146": 4
+          }
+        }
+        """);
+
+    assertThat(helper.resolveDomainAllocations(issue, config))
+        .containsExactly(
+            new com.sprinklr.sprintplanning.common.model.DomainAllocation(Domain.BE, 5.0, false),
+            new com.sprinklr.sprintplanning.common.model.DomainAllocation(Domain.UI, 4.0, false),
+            new com.sprinklr.sprintplanning.common.model.DomainAllocation(Domain.DEV, 2.0, false),
+            new com.sprinklr.sprintplanning.common.model.DomainAllocation(Domain.QA, 3.0, false),
+            new com.sprinklr.sprintplanning.common.model.DomainAllocation(Domain.DESIGN, 1.0, false));
+    assertThat(helper.resolveStoryPoints(issue, config)).isEqualTo(15.0);
+  }
+
   private JiraIssueDto readIssue(String json) throws Exception {
     return objectMapper.readValue(json, JiraIssueDto.class);
   }

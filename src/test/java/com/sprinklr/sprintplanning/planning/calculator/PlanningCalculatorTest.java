@@ -2,6 +2,7 @@ package com.sprinklr.sprintplanning.planning.calculator;
 
 import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.enums.StatusCategory;
+import com.sprinklr.sprintplanning.common.model.DomainAllocation;
 import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.planning.config.PlanningProperties;
 import com.sprinklr.sprintplanning.planning.dto.CapacityRiskStatus;
@@ -298,6 +299,40 @@ class PlanningCalculatorTest {
           assertThat(ui.committedStoryPoints()).isEqualTo(4.0);
           assertThat(ui.utilizationPercent()).isEqualTo(80.0);
         });
+  }
+
+  @Test
+  void calculatesReleaseSummaryWithStageDomainStoryPointsFromAllocations() {
+    List<PersonCapacity> capacity = List.of(
+        personCapacity("QA 1", Domain.QA, 100.0),
+        personCapacity("Design 1", Domain.DESIGN, 100.0));
+
+    List<IssueView> issues = List.of(
+        new IssueView(
+            "SCRUM-1",
+            "Story",
+            Domain.BE,
+            15.0,
+            "Story",
+            "BACKLOG(DEV)",
+            StatusCategory.TODO,
+            List.of(
+                new DomainAllocation(Domain.BE, 5.0, false),
+                new DomainAllocation(Domain.DEV, 2.0, false),
+                new DomainAllocation(Domain.QA, 3.0, false),
+                new DomainAllocation(Domain.DESIGN, 1.0, false)),
+            List.of()));
+
+    var summary = calculator.calculateReleaseSummary(
+        "release-1", 10, null, capacity, 0.0, issues);
+
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.QA).first()
+        .satisfies(qa -> {
+          assertThat(qa.committedStoryPoints()).isEqualTo(3.0);
+          assertThat(qa.selectedIssueCount()).isEqualTo(1);
+        });
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.DESIGN).first()
+        .satisfies(design -> assertThat(design.committedStoryPoints()).isEqualTo(1.0));
   }
 
   @Test

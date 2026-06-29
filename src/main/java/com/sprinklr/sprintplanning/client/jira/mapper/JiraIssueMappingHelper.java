@@ -26,6 +26,9 @@ import java.util.regex.Pattern;
 @Component
 public class JiraIssueMappingHelper {
 
+  private static final List<Domain> STAGE_DOMAINS = List.of(Domain.DEV, Domain.QA, Domain.DESIGN);
+  private static final Set<Domain> ENGINEERING_DOMAINS = EnumSet.of(Domain.BE, Domain.UI, Domain.AI);
+
   private static final Pattern SPRINT_ID_IN_TEXT = Pattern.compile("id=(\\d+)");
   private static final Pattern SPRINT_STATE_IN_TEXT =
       Pattern.compile("state=([A-Za-z_]+)", Pattern.CASE_INSENSITIVE);
@@ -86,24 +89,12 @@ public class JiraIssueMappingHelper {
       return List.of();
     }
 
-    String jiraDomainValue = extractFieldValue(fields.path(config.domainFieldId()));
-    List<Domain> domains = parseDomainsFromSelect(jiraDomainValue, config);
-    if (domains.isEmpty() || domains.stream().allMatch(domain -> domain == Domain.UNKNOWN)) {
-      return List.of();
-    }
-
     Set<String> completedOptions = readMultiCheckboxOptions(
         fields.path(config.domainCompletionFieldId()));
 
     List<DomainAllocation> allocations = new ArrayList<>();
-    for (Domain domain : domains) {
-      if (domain == null || domain == Domain.UNKNOWN) {
-        continue;
-      }
-      double storyPoints = resolveAllocationStoryPoints(fields, domain, config);
-      boolean completed = isDomainCompleted(domain, completedOptions, config);
-      allocations.add(new DomainAllocation(domain, storyPoints, completed));
-    }
+    allocations.addAll(resolveEngineeringDomainAllocations(fields, completedOptions, config));
+    allocations.addAll(resolveStageDomainAllocations(fields, completedOptions, config));
     return allocations;
   }
 
@@ -119,28 +110,52 @@ public class JiraIssueMappingHelper {
 
     Set<String> completedOptions = readMultiCheckboxOptions(
         fields.path(config.domainCompletionFieldId()));
+    return resolveEngineeringDomainAllocations(fields, completedOptions, config);
+  }
 
+  private List<DomainAllocation> resolveEngineeringDomainAllocations(
+      JsonNode fields,
+      Set<String> completedOptions,
+      JiraFieldConfig config) {
     String jiraDomainValue = config.domainFieldId() != null
         ? extractFieldValue(fields.path(config.domainFieldId()))
         : null;
     List<Domain> selectedDomains = parseDomainsFromSelect(jiraDomainValue, config).stream()
-        .filter(domain -> domain == Domain.BE || domain == Domain.UI || domain == Domain.AI)
+        .filter(ENGINEERING_DOMAINS::contains)
         .distinct()
         .toList();
 
     if (selectedDomains.isEmpty()) {
-      selectedDomains = List.of(Domain.BE, Domain.UI, Domain.AI).stream()
+      selectedDomains = ENGINEERING_DOMAINS.stream()
           .filter(domain -> hasPositiveStoryPoints(fields, domain, config))
           .toList();
     }
 
     List<DomainAllocation> allocations = new ArrayList<>();
     for (Domain domain : selectedDomains) {
-      String storyPointFieldId = config.domainStoryPointFields().get(domain.name());
-      if (storyPointFieldId == null || storyPointFieldId.isBlank()) {
+      if (!usesPerDomainStoryPoints(domain, config)) {
         continue;
       }
-      double storyPoints = numberOrZero(readNumberField(fields, storyPointFieldId));
+      double storyPoints = numberOrZero(readNumberField(fields, config.domainStoryPointFields().get(domain.name())));
+      boolean completed = isDomainCompleted(domain, completedOptions, config);
+      allocations.add(new DomainAllocation(domain, storyPoints, completed));
+    }
+    return allocations;
+  }
+
+  private List<DomainAllocation> resolveStageDomainAllocations(
+      JsonNode fields,
+      Set<String> completedOptions,
+      JiraFieldConfig config) {
+    List<DomainAllocation> allocations = new ArrayList<>();
+    for (Domain domain : STAGE_DOMAINS) {
+      if (!usesPerDomainStoryPoints(domain, config)) {
+        continue;
+      }
+      double storyPoints = resolveAllocationStoryPoints(fields, domain, config);
+      if (storyPoints <= 0) {
+        continue;
+      }
       boolean completed = isDomainCompleted(domain, completedOptions, config);
       allocations.add(new DomainAllocation(domain, storyPoints, completed));
     }
@@ -175,7 +190,11 @@ public class JiraIssueMappingHelper {
   public Domain resolveDomain(JiraIssueDto issue, @Context JiraFieldConfig config) {
     List<DomainAllocation> allocations = resolveDomainAllocations(issue, config);
     if (!allocations.isEmpty()) {
-      return allocations.getFirst().domain();
+      return allocations.stream()
+          .map(DomainAllocation::domain)
+          .filter(ENGINEERING_DOMAINS::contains)
+          .findFirst()
+          .orElse(allocations.getFirst().domain());
     }
 
     if (config == null || config.domainFieldId() == null) {
