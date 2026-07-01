@@ -99,6 +99,7 @@ export function ReleasesTab({ podId, onReleasesChange, onViewIssues }: ReleasesT
         <h2 className="text-lg font-semibold text-gray-900">Create release</h2>
         <div className="mt-4">
           <ReleaseForm
+            podId={podId}
             initial={emptyReleaseForm}
             submitLabel="Create release"
             onSubmit={handleCreate}
@@ -115,6 +116,7 @@ export function ReleasesTab({ podId, onReleasesChange, onViewIssues }: ReleasesT
         <h2 className="text-lg font-semibold text-gray-900">Edit release</h2>
         <div className="mt-4">
           <ReleaseForm
+            podId={podId}
             initial={releaseToFormState(editingRelease)}
             submitLabel="Save changes"
             onSubmit={handleUpdate}

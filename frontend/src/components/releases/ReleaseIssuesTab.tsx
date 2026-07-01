@@ -15,6 +15,7 @@ import type {
   ReleaseResponse,
 } from '../../api/types'
 import { AnalyticsInsightsPanel } from '../analytics/AnalyticsInsightsPanel'
+import { JqlAutocompleteTextarea } from '../jira/JqlAutocompleteTextarea'
 import { PageErrorState, PageLoadingState } from '../common'
 import { ReleaseCapacityEditor } from './ReleaseCapacityEditor'
 import { DomainMetricsTable } from '../planning/DomainMetricsTable'
@@ -239,9 +240,10 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
             {loading ? 'Searching...' : 'Search issues'}
           </button>
         </div>
-        <textarea
+        <JqlAutocompleteTextarea
+          podId={podId}
           value={draftAdditionalJql}
-          onChange={(event) => setDraftAdditionalJql(event.target.value)}
+          onChange={setDraftAdditionalJql}
           rows={3}
           placeholder='status = "In Progress"'
           className="w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-sm text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import type { CreateReleaseRequest, ReleaseResponse, UpdateReleaseRequest } from '../../api/types'
+import { JqlAutocompleteTextarea } from '../jira/JqlAutocompleteTextarea'
 
 export interface ReleaseFormState {
   name: string
@@ -43,13 +44,14 @@ export function formStateToReleaseRequest(
 }
 
 interface ReleaseFormProps {
+  podId: string
   initial: ReleaseFormState
   submitLabel: string
   onSubmit: (request: CreateReleaseRequest | UpdateReleaseRequest) => Promise<void>
   onCancel: () => void
 }
 
-export function ReleaseForm({ initial, submitLabel, onSubmit, onCancel }: ReleaseFormProps) {
+export function ReleaseForm({ podId, initial, submitLabel, onSubmit, onCancel }: ReleaseFormProps) {
   const [form, setForm] = useState<ReleaseFormState>(initial)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -122,10 +124,11 @@ export function ReleaseForm({ initial, submitLabel, onSubmit, onCancel }: Releas
           Defines the release issue scope. Additional filters on the Release Issues tab are combined
           with AND.
         </p>
-        <textarea
+        <JqlAutocompleteTextarea
           id="release-base-jql"
+          podId={podId}
           value={form.baseJql}
-          onChange={(event) => update('baseJql', event.target.value)}
+          onChange={(baseJql) => update('baseJql', baseJql)}
           rows={4}
           placeholder='project = SCRUM AND cf[10183] = "Q3"'
           className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-sm text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"

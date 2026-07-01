@@ -24,6 +24,7 @@ export { getPod, listPods } from './podApi'
 export { listActiveAndFutureSprints, listSprints } from './sprintApi'
 export { listReleases, getRelease, createRelease, updateRelease, deactivateRelease, updateReleaseCapacity } from './releaseApi'
 export { searchIssuesInPod, searchIssuesInRelease, getReleaseIssuesAnalytics, getReleaseCapacityMetrics } from './issueSearchApi'
+export { getJqlReferenceData, getJqlSuggestions } from './jqlApi'
 export { ApiError } from './types'
 export type {
   AnalyticsResponse,

@@ -4,7 +4,11 @@ import com.sprinklr.sprintplanning.client.jira.dto.JiraApproximateCountRequest;
 import com.sprinklr.sprintplanning.client.jira.dto.JiraApproximateCountResponse;
 import com.sprinklr.sprintplanning.client.jira.dto.JiraIssueDto;
 import com.sprinklr.sprintplanning.client.jira.dto.JiraIssueMoveRequest;
+import com.sprinklr.sprintplanning.client.jira.dto.JiraJqlAutocompleteDataRequest;
+import com.sprinklr.sprintplanning.client.jira.dto.JiraJqlReferenceDataDto;
+import com.sprinklr.sprintplanning.client.jira.dto.JiraJqlSuggestionsDto;
 import com.sprinklr.sprintplanning.client.jira.dto.JiraPagedResponse;
+import com.sprinklr.sprintplanning.client.jira.dto.JiraProjectDto;
 import com.sprinklr.sprintplanning.client.jira.dto.JiraSearchJqlRequest;
 import com.sprinklr.sprintplanning.client.jira.dto.JiraSearchJqlResponse;
 import com.sprinklr.sprintplanning.client.jira.dto.JiraSprintDto;
@@ -201,6 +205,77 @@ public class JiraRestClient {
 
   public List<JiraIssueDto> searchAllIssues(String jql, List<String> extraFields) {
     return fetchAllSearchResults(jql, extraFields);
+  }
+
+  public JiraJqlReferenceDataDto getJqlAutocompleteData(List<Long> projectIds) {
+    if (projectIds == null || projectIds.isEmpty()) {
+      return getJqlAutocompleteDataGet();
+    }
+    return getJqlAutocompleteDataPost(projectIds);
+  }
+
+  public JiraJqlSuggestionsDto getJqlAutocompleteSuggestions(
+      String fieldName,
+      String fieldValue,
+      String predicateName,
+      String predicateValue) {
+    return retry(() -> restClient.get()
+        .uri(uriBuilder -> {
+          var builder = uriBuilder.path("/rest/api/3/jql/autocompletedata/suggestions");
+          if (fieldName != null && !fieldName.isBlank()) {
+            builder.queryParam("fieldName", fieldName);
+          }
+          if (fieldValue != null && !fieldValue.isBlank()) {
+            builder.queryParam("fieldValue", fieldValue);
+          }
+          if (predicateName != null && !predicateName.isBlank()) {
+            builder.queryParam("predicateName", predicateName);
+          }
+          if (predicateValue != null && !predicateValue.isBlank()) {
+            builder.queryParam("predicateValue", predicateValue);
+          }
+          return builder.build();
+        })
+        .retrieve()
+        .onStatus(this::isRetryable, this::throwRetryable)
+        .onStatus(HttpStatusCode::is4xxClientError, (request, clientResponse) -> {
+          throw JiraClientException.badRequest("Jira JQL autocomplete suggestions failed");
+        })
+        .body(JiraJqlSuggestionsDto.class));
+  }
+
+  public JiraProjectDto getProject(String projectKeyOrId) {
+    return retry(() -> restClient.get()
+        .uri("/rest/api/3/project/{projectKeyOrId}", projectKeyOrId)
+        .retrieve()
+        .onStatus(this::isRetryable, this::throwRetryable)
+        .onStatus(HttpStatusCode::is4xxClientError, (request, clientResponse) -> {
+          throw JiraClientException.badRequest("Jira project not found: " + projectKeyOrId);
+        })
+        .body(JiraProjectDto.class));
+  }
+
+  private JiraJqlReferenceDataDto getJqlAutocompleteDataGet() {
+    return retry(() -> restClient.get()
+        .uri("/rest/api/3/jql/autocompletedata")
+        .retrieve()
+        .onStatus(this::isRetryable, this::throwRetryable)
+        .onStatus(HttpStatusCode::is4xxClientError, (request, clientResponse) -> {
+          throw JiraClientException.badRequest("Jira JQL autocomplete reference data failed");
+        })
+        .body(JiraJqlReferenceDataDto.class));
+  }
+
+  private JiraJqlReferenceDataDto getJqlAutocompleteDataPost(List<Long> projectIds) {
+    return retry(() -> restClient.post()
+        .uri("/rest/api/3/jql/autocompletedata")
+        .body(new JiraJqlAutocompleteDataRequest(true, projectIds))
+        .retrieve()
+        .onStatus(this::isRetryable, this::throwRetryable)
+        .onStatus(HttpStatusCode::is4xxClientError, (request, clientResponse) -> {
+          throw JiraClientException.badRequest("Jira JQL autocomplete reference data failed");
+        })
+        .body(JiraJqlReferenceDataDto.class));
   }
 
   private List<JiraIssueDto> fetchAllSearchResults(String jql, List<String> extraFields) {
