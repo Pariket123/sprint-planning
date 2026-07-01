@@ -118,7 +118,6 @@ public class PlanningCalculator {
       double domainRollover = rollover.getOrDefault(domain, 0.0);
       SelectionMetrics selectedMetrics = selection.getOrDefault(domain, SelectionMetrics.EMPTY);
       SelectionMetrics committedMetrics = committed.getOrDefault(domain, SelectionMetrics.EMPTY);
-      double suggestedCommitment = Math.max(0, available - domainRollover);
       double committedStoryPoints = committedMetrics.storyPoints();
       double plannedRoadmapCapacity =
           capacityAllocationCalculator.plannedRoadmapStoryPoints(allocationTable, domain);
@@ -130,7 +129,7 @@ public class PlanningCalculator {
           round(domainRollover),
           round(selectedMetrics.storyPoints()),
           selectedMetrics.issueCount(),
-          round(suggestedCommitment),
+          round(plannedRoadmapCapacity),
           round(committedStoryPoints),
           round(utilizationPercent),
           determineCapacityRisk(committedStoryPoints, plannedRoadmapCapacity)));

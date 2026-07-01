@@ -62,7 +62,7 @@ class PlanningCalculatorTest {
         .satisfies(be -> {
           assertThat(be.availableCapacity()).isEqualTo(17.0);
           assertThat(be.rollover()).isEqualTo(2.0);
-          assertThat(be.suggestedCommitment()).isEqualTo(15.0);
+          assertThat(be.suggestedCommitment()).isEqualTo(10.2);
           assertThat(be.selectedStoryPoints()).isEqualTo(5.0);
           assertThat(be.committedStoryPoints()).isZero();
           assertThat(be.utilizationPercent()).isZero();
