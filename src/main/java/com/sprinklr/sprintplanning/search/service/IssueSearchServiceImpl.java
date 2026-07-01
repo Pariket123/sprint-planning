@@ -1,6 +1,7 @@
 package com.sprinklr.sprintplanning.search.service;
 
 import com.sprinklr.sprintplanning.analytics.calculator.AnalyticsCalculator;
+import com.sprinklr.sprintplanning.analytics.workflow.DevSubDomainAnalysisProfiles;
 import com.sprinklr.sprintplanning.planning.calculator.PlanningCalculator;
 import com.sprinklr.sprintplanning.release.dto.ReleaseCapacitySummaryDto;
 import com.sprinklr.sprintplanning.analytics.dto.AnalyticsResponse;
@@ -102,11 +103,12 @@ public class IssueSearchServiceImpl implements IssueSearchService {
     JiraFieldConfig fieldConfig = jiraConfigMapper.toJiraFieldConfig(pod.getJiraConfig());
 
     Optional<String> jql = resolveReleaseJql(pod, release, request, fieldConfig);
-    List<IssueView> issues = jql.isEmpty()
+    List<IssueView> allIssues = jql.isEmpty()
         ? List.of()
         : jiraClient.searchAllIssues(jql.get(), fieldConfig);
+    List<IssueView> issues = filterReleaseAnalyticsIssues(allIssues, fieldConfig, request);
 
-    return analyticsCalculator.calculate(null, release.getName(), issues, fieldConfig);
+    return analyticsCalculator.calculate(null, release.getName(), issues, allIssues, fieldConfig);
   }
 
   @Override
@@ -130,6 +132,14 @@ public class IssueSearchServiceImpl implements IssueSearchService {
         release.getCapacity(),
         release.getLeavePercent() != null ? release.getLeavePercent() : 0.0,
         issues);
+  }
+
+  private List<IssueView> filterReleaseAnalyticsIssues(
+      List<IssueView> issues,
+      JiraFieldConfig fieldConfig,
+      IssueSearchReleaseRequest request) {
+    String profileKey = request != null ? request.issueTypeProfile() : null;
+    return DevSubDomainAnalysisProfiles.filterIssues(issues, fieldConfig, profileKey);
   }
 
   private Optional<String> resolveReleaseJql(

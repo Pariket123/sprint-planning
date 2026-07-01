@@ -8,7 +8,9 @@ import com.sprinklr.sprintplanning.analytics.dto.BugsVsFeaturesDto;
 import com.sprinklr.sprintplanning.analytics.dto.CategoryMetricsDto;
 import com.sprinklr.sprintplanning.analytics.dto.DomainBreakdownItemDto;
 import com.sprinklr.sprintplanning.analytics.dto.IssueCountsDto;
+import com.sprinklr.sprintplanning.analytics.dto.IssueTypeMetricsDto;
 import com.sprinklr.sprintplanning.analytics.dto.StatusDistributionItemDto;
+import com.sprinklr.sprintplanning.analytics.workflow.DevSubDomainAnalysisProfiles;
 import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.enums.StatusCategory;
 import com.sprinklr.sprintplanning.common.model.DomainAllocation;
@@ -35,13 +37,18 @@ public class AnalyticsCalculator {
 
   public AnalyticsResponse calculate(Long jiraSprintId, String sprintName, List<IssueView> issues,
                                      JiraFieldConfig fieldConfig) {
+    return calculate(jiraSprintId, sprintName, issues, issues, fieldConfig);
+  }
+
+  public AnalyticsResponse calculate(
+      Long jiraSprintId,
+      String sprintName,
+      List<IssueView> issues,
+      List<IssueView> issueTypeBreakdownIssues,
+      JiraFieldConfig fieldConfig) {
     double totalStoryPoints = 0;
     double completedStoryPoints = 0;
     int completedCount = 0;
-
-    CategoryMetrics bugs = new CategoryMetrics();
-    CategoryMetrics features = new CategoryMetrics();
-    CategoryMetrics other = new CategoryMetrics();
 
     Map<String, StatusBucket> statusBuckets = new LinkedHashMap<>();
     Map<Domain, CategoryMetrics> domainBuckets = new EnumMap<>(Domain.class);
@@ -58,12 +65,6 @@ public class AnalyticsCalculator {
       boolean completed = IssueAllocationHelper.isIssueCompleted(issue);
       if (completed) {
         completedCount++;
-      }
-
-      switch (classifyIssue(issue, fieldConfig)) {
-        case BUG -> bugs.add(points);
-        case FEATURE -> features.add(points);
-        case OTHER -> other.add(points);
       }
 
       String statusKey = issue.status() + "|" + issue.statusCategory();
@@ -83,6 +84,9 @@ public class AnalyticsCalculator {
     int total = issues.size();
     int remaining = total - completedCount;
     int totalDomainTouches = domainBuckets.values().stream().mapToInt(metrics -> metrics.count).sum();
+    List<IssueView> breakdownIssues = issueTypeBreakdownIssues != null
+        ? issueTypeBreakdownIssues
+        : issues;
 
     return new AnalyticsResponse(
         jiraSprintId,
@@ -91,25 +95,47 @@ public class AnalyticsCalculator {
         completedStoryPoints,
         totalStoryPoints - completedStoryPoints,
         new IssueCountsDto(total, completedCount, remaining),
-        new BugsVsFeaturesDto(
-            bugs.toDto(),
-            features.toDto(),
-            other.toDto()),
+        buildIssueTypeBreakdown(breakdownIssues, fieldConfig),
         toStatusDistribution(statusBuckets),
         toDomainBreakdown(domainBuckets, totalDomainTouches, totalStoryPoints),
         workflowAnalyticsCalculator.calculateStageDistribution(issues, fieldConfig),
         workflowAnalyticsCalculator.calculateDevSubDomainMetrics(issues, fieldConfig));
   }
 
-  private IssueCategory classifyIssue(IssueView issue, JiraFieldConfig fieldConfig) {
-    String issueType = issue.issueType();
-    if (issueType != null && fieldConfig.bugIssueTypes().stream().anyMatch(issueType::equalsIgnoreCase)) {
-      return IssueCategory.BUG;
+  private BugsVsFeaturesDto buildIssueTypeBreakdown(
+      List<IssueView> issues,
+      JiraFieldConfig fieldConfig) {
+    List<com.sprinklr.sprintplanning.common.model.DevSubDomainIssueTypeProfile> configuredProfiles =
+        DevSubDomainAnalysisProfiles.configuredProfiles(fieldConfig);
+    List<String> bugTypes = DevSubDomainAnalysisProfiles.bugProfile(configuredProfiles).issueTypes();
+    List<String> storyTypes = DevSubDomainAnalysisProfiles.storyProfile(configuredProfiles).issueTypes();
+
+    CategoryMetrics bugs = new CategoryMetrics();
+    CategoryMetrics stories = new CategoryMetrics();
+    Map<String, CategoryMetrics> otherByType = new LinkedHashMap<>();
+
+    for (IssueView issue : issues) {
+      double points = IssueAllocationHelper.totalStoryPoints(issue);
+      String issueType = issue.issueType() != null ? issue.issueType() : "Unknown";
+
+      if (DevSubDomainAnalysisProfiles.matchesIssueType(issueType, bugTypes)) {
+        bugs.add(points);
+      } else if (DevSubDomainAnalysisProfiles.matchesIssueType(issueType, storyTypes)) {
+        stories.add(points);
+      } else {
+        otherByType.computeIfAbsent(issueType, key -> new CategoryMetrics()).add(points);
+      }
     }
-    if (issueType != null && fieldConfig.featureIssueTypes().stream().anyMatch(issueType::equalsIgnoreCase)) {
-      return IssueCategory.FEATURE;
-    }
-    return IssueCategory.OTHER;
+
+    List<IssueTypeMetricsDto> otherTypes = otherByType.entrySet().stream()
+        .sorted(Map.Entry.comparingByKey(String.CASE_INSENSITIVE_ORDER))
+        .map(entry -> new IssueTypeMetricsDto(
+            entry.getKey(),
+            entry.getValue().count,
+            round(entry.getValue().storyPoints)))
+        .toList();
+
+    return new BugsVsFeaturesDto(bugs.toDto(), stories.toDto(), otherTypes);
   }
 
   private List<StatusDistributionItemDto> toStatusDistribution(Map<String, StatusBucket> buckets) {
@@ -159,10 +185,6 @@ public class AnalyticsCalculator {
 
   private double round(double value) {
     return Math.round(value * 100.0) / 100.0;
-  }
-
-  private enum IssueCategory {
-    BUG, FEATURE, OTHER
   }
 
   private static class CategoryMetrics {

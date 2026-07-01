@@ -88,6 +88,7 @@ export interface UpdateReleaseRequest {
 
 export interface IssueSearchReleaseRequest {
   additionalJql?: string | null
+  issueTypeProfile?: string | null
 }
 
 export interface ReleaseCapacitySummaryDto {
@@ -180,10 +181,16 @@ export interface IssueCountsDto {
   remaining: number
 }
 
+export interface IssueTypeMetricsDto {
+  issueType: string
+  count: number
+  storyPoints: number
+}
+
 export interface BugsVsFeaturesDto {
   bugs: CategoryMetricsDto
-  features: CategoryMetricsDto
-  other: CategoryMetricsDto
+  stories: CategoryMetricsDto
+  otherTypes: IssueTypeMetricsDto[]
 }
 
 export interface StatusDistributionItemDto {

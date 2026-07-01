@@ -9,5 +9,5 @@ public interface AnalyticsService {
 
   List<SprintView> getSprints(String podId, String state);
 
-  AnalyticsResponse getSprintAnalytics(String podId, Long jiraSprintId);
+  AnalyticsResponse getSprintAnalytics(String podId, Long jiraSprintId, String issueTypeProfile);
 }

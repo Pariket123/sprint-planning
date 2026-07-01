@@ -105,7 +105,19 @@
                   "BE": "Be",
                   "UI": "Ui",
                   "AI": "Ai"
-                }
+                },
+                "issueTypeProfiles": [
+                  {
+                    "key": "story",
+                    "label": "Story",
+                    "issueTypes": ["Story"]
+                  },
+                  {
+                    "key": "bug",
+                    "label": "Bug",
+                    "issueTypes": ["Bug", "Defect"]
+                  }
+                ]
               }
             }
           }
@@ -210,7 +222,19 @@
                   "BE": "Be",
                   "UI": "Ui",
                   "AI": "Ai"
-                }
+                },
+                "issueTypeProfiles": [
+                  {
+                    "key": "story",
+                    "label": "Story",
+                    "issueTypes": ["Story"]
+                  },
+                  {
+                    "key": "bug",
+                    "label": "Bug",
+                    "issueTypes": ["Bug", "Defect"]
+                  }
+                ]
               }
             }
           }
@@ -315,7 +339,19 @@
                   "BE": "Be",
                   "UI": "Ui",
                   "AI": "Ai"
-                }
+                },
+                "issueTypeProfiles": [
+                  {
+                    "key": "story",
+                    "label": "Story",
+                    "issueTypes": ["Story"]
+                  },
+                  {
+                    "key": "bug",
+                    "label": "Bug",
+                    "issueTypes": ["Bug", "Defect"]
+                  }
+                ]
               }
             }
           }

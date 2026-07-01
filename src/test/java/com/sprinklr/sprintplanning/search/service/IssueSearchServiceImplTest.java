@@ -204,14 +204,39 @@ class IssueSearchServiceImplTest {
     AnalyticsResponse result = issueSearchService.analyzeRelease(
         "pod-1",
         "release-1",
-        new IssueSearchReleaseRequest("status != Done"));
+        new IssueSearchReleaseRequest("status != Done", null));
 
     assertThat(result.sprintName()).isEqualTo("Q3 Release");
-    assertThat(result.issueCounts().total()).isEqualTo(2);
-    assertThat(result.domainBreakdown()).extracting("domain").containsExactly(Domain.DEV, Domain.QA);
+    assertThat(result.issueCounts().total()).isEqualTo(1);
+    assertThat(result.domainBreakdown()).extracting("domain").containsExactly(Domain.DEV);
     verify(jiraClient).searchAllIssues(
         eq("(project = SCRUM AND fixVersion = \"Q3\") AND (status != Done)"),
         eq(fieldConfig));
+  }
+
+  @Test
+  void analyzeReleaseFiltersIssuesByBugProfile() {
+    ReleaseConfigDocument release = releaseWithBaseJql("project = SCRUM AND fixVersion = \"Q3\"");
+    release.setName("Q3 Release");
+
+    PodDocument pod = podWithProjects("pod-1", List.of("SCRUM"));
+    JiraFieldConfig fieldConfig = fieldConfig();
+
+    when(teamService.getActivePodDocument("pod-1")).thenReturn(pod);
+    when(releaseService.getActiveReleaseDocument("pod-1", "release-1")).thenReturn(release);
+    when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig);
+    when(jiraClient.searchAllIssues(any(), eq(fieldConfig)))
+        .thenReturn(List.of(
+            new IssueView("SCRUM-1", "Done", Domain.DEV, 5.0, "Story", "Done", StatusCategory.DONE),
+            new IssueView("SCRUM-2", "Todo", Domain.QA, 3.0, "Bug", "To Do", StatusCategory.TODO)));
+
+    AnalyticsResponse result = issueSearchService.analyzeRelease(
+        "pod-1",
+        "release-1",
+        new IssueSearchReleaseRequest(null, "bug"));
+
+    assertThat(result.issueCounts().total()).isEqualTo(1);
+    assertThat(result.domainBreakdown()).extracting("domain").containsExactly(Domain.QA);
   }
 
   private ReleaseConfigDocument releaseWithBaseJql(String baseJql) {

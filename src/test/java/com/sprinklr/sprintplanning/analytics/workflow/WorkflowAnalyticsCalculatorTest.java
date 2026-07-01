@@ -114,6 +114,14 @@ class WorkflowAnalyticsCalculatorTest {
   }
 
   private static IssueView issue(String key, String status, List<DomainAllocation> engineeringAllocations) {
+    return issue(key, status, engineeringAllocations, List.of());
+  }
+
+  private static IssueView issue(
+      String key,
+      String status,
+      List<DomainAllocation> engineeringAllocations,
+      List<DomainAllocation> domainAllocations) {
     return new IssueView(
         key,
         "Summary",
@@ -122,7 +130,7 @@ class WorkflowAnalyticsCalculatorTest {
         "Story",
         status,
         StatusCategory.IN_PROGRESS,
-        List.of(),
+        domainAllocations,
         engineeringAllocations);
   }
 

@@ -14,10 +14,11 @@ import type {
   ReleaseCapacitySummaryDto,
   ReleaseResponse,
 } from '../../api/types'
-import { AnalyticsInsightsPanel } from '../analytics/AnalyticsInsightsPanel'
 import { JqlAutocompleteTextarea } from '../jira/JqlAutocompleteTextarea'
 import { PageErrorState, PageLoadingState } from '../common'
+import { ReleaseAnalysisPanel } from './ReleaseAnalysisPanel'
 import { ReleaseCapacityEditor } from './ReleaseCapacityEditor'
+import { DEFAULT_DEV_SUB_DOMAIN_ANALYSIS_PROFILE_KEY } from '../../config/devSubDomainAnalysisProfiles'
 import { DomainMetricsTable } from '../planning/DomainMetricsTable'
 import { IssueTable } from '../issues/IssueTable'
 import { formatStoryPoints } from '../../utils/format'
@@ -42,6 +43,9 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
   const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
+  const [analysisProfileKey, setAnalysisProfileKey] = useState(
+    DEFAULT_DEV_SUB_DOMAIN_ANALYSIS_PROFILE_KEY,
+  )
   const [capacityMetrics, setCapacityMetrics] = useState<ReleaseCapacitySummaryDto | null>(null)
   const [capacityLoading, setCapacityLoading] = useState(false)
   const [capacityError, setCapacityError] = useState<string | null>(null)
@@ -85,7 +89,7 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
   )
 
   const loadAnalytics = useCallback(
-    async (jql = appliedAdditionalJql) => {
+    async (jql = appliedAdditionalJql, profileKey = analysisProfileKey) => {
       setAnalyticsLoading(true)
       setAnalyticsError(null)
 
@@ -93,7 +97,10 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
         const result = await getReleaseIssuesAnalytics(
           podId,
           releaseConfig.id,
-          buildReleaseRequest(jql),
+          {
+            additionalJql: jql.trim() || null,
+            issueTypeProfile: profileKey,
+          },
         )
         setAnalytics(result)
       } catch (err) {
@@ -105,7 +112,7 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
         setAnalyticsLoading(false)
       }
     },
-    [podId, releaseConfig.id, appliedAdditionalJql, buildReleaseRequest],
+    [podId, releaseConfig.id, appliedAdditionalJql, analysisProfileKey],
   )
 
   const loadCapacityMetrics = useCallback(
@@ -139,6 +146,7 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
     setPage(null)
     setAnalytics(null)
     setAnalyticsError(null)
+    setAnalysisProfileKey(DEFAULT_DEV_SUB_DOMAIN_ANALYSIS_PROFILE_KEY)
     setCapacityMetrics(null)
     setCapacityError(null)
 
@@ -167,8 +175,8 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
     if (activeTab !== 'analysis') {
       return
     }
-    void loadAnalytics(appliedAdditionalJql)
-  }, [activeTab, appliedAdditionalJql, loadAnalytics])
+    void loadAnalytics(appliedAdditionalJql, analysisProfileKey)
+  }, [activeTab, appliedAdditionalJql, analysisProfileKey, loadAnalytics])
 
   useEffect(() => {
     if (activeTab !== 'capacity') {
@@ -391,7 +399,15 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
           )}
 
           {analytics && !analyticsLoading && !analyticsError && (
-            <AnalyticsInsightsPanel analytics={analytics} />
+            <ReleaseAnalysisPanel
+              analytics={analytics}
+              activeProfileKey={analysisProfileKey}
+              switchingProfile={analyticsLoading}
+              onProfileChange={(profileKey) => {
+                setAnalysisProfileKey(profileKey)
+                void loadAnalytics(appliedAdditionalJql, profileKey)
+              }}
+            />
           )}
         </div>
       )}

@@ -51,9 +51,12 @@ class AnalyticsCalculatorTest {
     assertThat(response.issueCounts().completed()).isEqualTo(1);
     assertThat(response.issueCounts().remaining()).isEqualTo(2);
     assertThat(response.bugsVsFeatures().bugs().count()).isEqualTo(1);
-    assertThat(response.bugsVsFeatures().features().count()).isEqualTo(2);
+    assertThat(response.bugsVsFeatures().stories().count()).isEqualTo(1);
     assertThat(response.bugsVsFeatures().bugs().storyPoints()).isEqualTo(3.0);
-    assertThat(response.bugsVsFeatures().features().storyPoints()).isEqualTo(5.0);
+    assertThat(response.bugsVsFeatures().stories().storyPoints()).isEqualTo(5.0);
+    assertThat(response.bugsVsFeatures().otherTypes()).hasSize(1);
+    assertThat(response.bugsVsFeatures().otherTypes().getFirst().issueType()).isEqualTo("Task");
+    assertThat(response.bugsVsFeatures().otherTypes().getFirst().count()).isEqualTo(1);
     assertThat(response.statusDistribution()).hasSize(3);
     assertThat(response.domainBreakdown()).extracting("domain").containsExactly(Domain.DEV, Domain.QA);
   }
@@ -139,6 +142,22 @@ class AnalyticsCalculatorTest {
           assertThat(be.completedStoryPoints()).isZero();
           assertThat(be.remainingStoryPoints()).isEqualTo(4.0);
         });
+  }
+
+  @Test
+  void buildsIssueTypeBreakdownFromUnfilteredIssuesWhenProvided() {
+    List<IssueView> allIssues = List.of(
+        new IssueView("WFM-1", "Done story", Domain.DEV, 5.0, "Story", "Done", StatusCategory.DONE),
+        new IssueView("WFM-2", "Bug", Domain.QA, 3.0, "Bug", "In Progress", StatusCategory.IN_PROGRESS),
+        new IssueView("WFM-3", "Task", Domain.DEV, 2.0, "Task", "To Do", StatusCategory.TODO));
+    List<IssueView> storyOnly = List.of(allIssues.getFirst());
+
+    AnalyticsResponse response = calculator.calculate(42L, "Sprint 42", storyOnly, allIssues, fieldConfig);
+
+    assertThat(response.issueCounts().total()).isEqualTo(1);
+    assertThat(response.bugsVsFeatures().bugs().count()).isEqualTo(1);
+    assertThat(response.bugsVsFeatures().stories().count()).isEqualTo(1);
+    assertThat(response.bugsVsFeatures().otherTypes()).extracting("issueType").containsExactly("Task");
   }
 
   @Test

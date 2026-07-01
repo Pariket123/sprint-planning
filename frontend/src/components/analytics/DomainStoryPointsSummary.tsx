@@ -3,18 +3,24 @@ import { formatDomain, formatStoryPoints } from '../../utils/format'
 import { AnalyticsSummaryCard } from '../common'
 
 const ENGINEERING_DOMAINS: Domain[] = ['BE', 'UI', 'AI']
+const DOMAIN_SUMMARY_ORDER: Domain[] = ['BE', 'UI', 'AI', 'QA']
 
 interface DomainStoryPointsSummaryProps {
   items: DomainBreakdownItemDto[]
+  includeQa?: boolean
 }
 
-export function DomainStoryPointsSummary({ items }: DomainStoryPointsSummaryProps) {
+export function DomainStoryPointsSummary({
+  items,
+  includeQa = false,
+}: DomainStoryPointsSummaryProps) {
   const byDomain = new Map(items.map((item) => [item.domain, item]))
-  const engineeringItems = ENGINEERING_DOMAINS.map((domain) => byDomain.get(domain)).filter(
+  const domains = includeQa ? DOMAIN_SUMMARY_ORDER : ENGINEERING_DOMAINS
+  const summaryItems = domains.map((domain) => byDomain.get(domain)).filter(
     (item): item is DomainBreakdownItemDto => item !== undefined,
   )
 
-  if (engineeringItems.length === 0) {
+  if (summaryItems.length === 0) {
     return (
       <p className="text-sm text-gray-500">
         No engineering story points found for the selected scope.
@@ -23,8 +29,8 @@ export function DomainStoryPointsSummary({ items }: DomainStoryPointsSummaryProp
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {engineeringItems.map((item) => (
+    <div className={`grid gap-4 sm:grid-cols-2 ${includeQa ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
+      {summaryItems.map((item) => (
         <AnalyticsSummaryCard
           key={item.domain}
           label={`Total ${formatDomain(item.domain)} story points`}

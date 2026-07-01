@@ -6,8 +6,15 @@ import java.util.Map;
 public record DevSubDomainConfig(
     List<String> subDomainPoolSections,
     List<String> autoCompleteSections,
-    Map<String, String> completionCheckboxValues
+    Map<String, String> completionCheckboxValues,
+    List<DevSubDomainIssueTypeProfile> issueTypeProfiles
 ) {
+  public DevSubDomainConfig(
+      List<String> subDomainPoolSections,
+      List<String> autoCompleteSections,
+      Map<String, String> completionCheckboxValues) {
+    this(subDomainPoolSections, autoCompleteSections, completionCheckboxValues, null);
+  }
   public boolean hasSubDomainPoolSection(String sectionKey) {
     return sectionKey != null
         && subDomainPoolSections != null

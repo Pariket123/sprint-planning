@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { ApiError, getSprintAnalytics, listSprints } from '../api'
 import type { AnalyticsResponse, SprintView } from '../api/types'
-import { AnalyticsInsightsPanel } from '../components/analytics/AnalyticsInsightsPanel'
+import { ProfiledAnalyticsPanel } from '../components/analytics/ProfiledAnalyticsPanel'
 import {
   PageEmptyState,
   PageErrorState,
@@ -10,6 +10,7 @@ import {
   PageLoadingState,
 } from '../components/common'
 import { SprintSelector } from '../components/selectors/SprintSelector'
+import { DEFAULT_DEV_SUB_DOMAIN_ANALYSIS_PROFILE_KEY } from '../config/devSubDomainAnalysisProfiles'
 import { useAppContext } from '../context/AppContext'
 
 export function AnalyzeSprintPage() {
@@ -21,6 +22,9 @@ export function AnalyzeSprintPage() {
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [sprintsError, setSprintsError] = useState<string | null>(null)
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
+  const [analysisProfileKey, setAnalysisProfileKey] = useState(
+    DEFAULT_DEV_SUB_DOMAIN_ANALYSIS_PROFILE_KEY,
+  )
 
   const loadSprints = useCallback(async () => {
     if (!podId) {
@@ -44,7 +48,7 @@ export function AnalyzeSprintPage() {
   }, [podId])
 
   const loadAnalytics = useCallback(
-    async (jiraSprintId: number) => {
+    async (jiraSprintId: number, profileKey = analysisProfileKey) => {
       if (!podId) {
         return
       }
@@ -53,7 +57,7 @@ export function AnalyzeSprintPage() {
       setAnalyticsError(null)
 
       try {
-        const response = await getSprintAnalytics(podId, jiraSprintId)
+        const response = await getSprintAnalytics(podId, jiraSprintId, profileKey)
         setAnalytics(response)
       } catch (err) {
         setAnalytics(null)
@@ -64,7 +68,7 @@ export function AnalyzeSprintPage() {
         setAnalyticsLoading(false)
       }
     },
-    [podId],
+    [podId, analysisProfileKey],
   )
 
   useEffect(() => {
@@ -86,13 +90,14 @@ export function AnalyzeSprintPage() {
 
   useEffect(() => {
     if (selectedSprintId !== null) {
-      void loadAnalytics(selectedSprintId)
+      void loadAnalytics(selectedSprintId, analysisProfileKey)
     } else {
       setAnalytics(null)
     }
-  }, [selectedSprintId, loadAnalytics])
+  }, [selectedSprintId, analysisProfileKey, loadAnalytics])
 
   const handleSprintChange = (sprintId: number) => {
+    setAnalysisProfileKey(DEFAULT_DEV_SUB_DOMAIN_ANALYSIS_PROFILE_KEY)
     setSprintId(sprintId)
   }
 
@@ -156,14 +161,24 @@ export function AnalyzeSprintPage() {
           message={analyticsError}
           onRetry={() => {
             if (selectedSprintId !== null) {
-              void loadAnalytics(selectedSprintId)
+              void loadAnalytics(selectedSprintId, analysisProfileKey)
             }
           }}
         />
       )}
 
       {analytics && !analyticsLoading && !analyticsError && (
-        <AnalyticsInsightsPanel analytics={analytics} />
+        <ProfiledAnalyticsPanel
+          analytics={analytics}
+          activeProfileKey={analysisProfileKey}
+          switchingProfile={analyticsLoading}
+          onProfileChange={(profileKey) => {
+            setAnalysisProfileKey(profileKey)
+            if (selectedSprintId !== null) {
+              void loadAnalytics(selectedSprintId, profileKey)
+            }
+          }}
+        />
       )}
     </div>
   )

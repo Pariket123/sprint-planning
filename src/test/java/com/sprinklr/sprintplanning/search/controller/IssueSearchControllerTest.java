@@ -85,7 +85,7 @@ class IssueSearchControllerTest {
         new BugsVsFeaturesDto(
             new CategoryMetricsDto(1, 3.0),
             new CategoryMetricsDto(1, 5.0),
-            new CategoryMetricsDto(0, 0.0)),
+            List.of()),
         List.of(),
         List.of(),
         null,

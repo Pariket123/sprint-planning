@@ -14,17 +14,16 @@ import com.sprinklr.sprintplanning.common.model.WorkflowAnalysisSection;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 @Component
 public class WorkflowAnalyticsCalculator {
 
-  private static final Set<Domain> ENGINEERING_SUB_DOMAINS = EnumSet.of(Domain.BE, Domain.UI, Domain.AI);
+  private static final List<Domain> DEV_SUB_DOMAIN_ORDER =
+      List.of(Domain.BE, Domain.UI, Domain.AI);
 
   private final WorkflowSectionResolver sectionResolver;
 
@@ -90,7 +89,7 @@ public class WorkflowAnalyticsCalculator {
         .toList();
 
     List<DevSubDomainItemDto> items = new ArrayList<>();
-    for (Domain domain : ENGINEERING_SUB_DOMAINS) {
+    for (Domain domain : DEV_SUB_DOMAIN_ORDER) {
       items.add(calculateSubDomainItem(subDomainPool, domain, subDomainConfig, config));
     }
 

@@ -4,6 +4,8 @@ import com.sprinklr.sprintplanning.analytics.calculator.AnalyticsCalculator;
 import com.sprinklr.sprintplanning.analytics.dto.AnalyticsResponse;
 import com.sprinklr.sprintplanning.client.jira.JiraClient;
 import com.sprinklr.sprintplanning.common.exception.ApiException;
+import com.sprinklr.sprintplanning.analytics.workflow.DevSubDomainAnalysisProfiles;
+import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.common.model.JiraFieldConfig;
 import com.sprinklr.sprintplanning.common.model.SprintView;
 import com.sprinklr.sprintplanning.team.mapper.JiraConfigMapper;
@@ -41,14 +43,18 @@ public class AnalyticsServiceImpl implements AnalyticsService {
   }
 
   @Override
-  public AnalyticsResponse getSprintAnalytics(String podId, Long jiraSprintId) {
+  public AnalyticsResponse getSprintAnalytics(
+      String podId,
+      Long jiraSprintId,
+      String issueTypeProfile) {
     PodDocument pod = teamService.getActivePodDocument(podId);
     JiraFieldConfig fieldConfig = jiraConfigMapper.toJiraFieldConfig(pod.getJiraConfig());
 
     SprintView sprint = jiraClient.getSprint(jiraSprintId);
-    var issues = jiraClient.searchAllIssues("sprint = " + jiraSprintId, fieldConfig);
+    List<IssueView> allIssues = jiraClient.searchAllIssues("sprint = " + jiraSprintId, fieldConfig);
+    List<IssueView> issues = DevSubDomainAnalysisProfiles.filterIssues(allIssues, fieldConfig, issueTypeProfile);
 
-    return analyticsCalculator.calculate(jiraSprintId, sprint.name(), issues, fieldConfig);
+    return analyticsCalculator.calculate(jiraSprintId, sprint.name(), issues, allIssues, fieldConfig);
   }
 
   private Long requireBoardId(PodDocument pod) {

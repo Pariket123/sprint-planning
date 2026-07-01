@@ -2,8 +2,8 @@ import type { Domain } from '../api/types'
 
 const DOMAIN_LABELS: Record<Domain, string> = {
   BE: 'Backend',
-  UI: 'Ui',
-  AI: 'Ai',
+  UI: 'UI',
+  AI: 'AI',
   DEV: 'Dev',
   QA: 'QA',
   DESIGN: 'Design',

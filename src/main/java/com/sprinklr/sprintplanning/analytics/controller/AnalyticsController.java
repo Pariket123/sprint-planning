@@ -38,7 +38,9 @@ public class AnalyticsController {
   @Operation(summary = "Get sprint analytics insights")
   public ResponseEntity<ApiResponse<AnalyticsResponse>> getSprintAnalytics(
       @PathVariable String podId,
-      @PathVariable Long jiraSprintId) {
-    return ResponseEntity.ok(ApiResponse.ok(analyticsService.getSprintAnalytics(podId, jiraSprintId)));
+      @PathVariable Long jiraSprintId,
+      @RequestParam(required = false) String issueTypeProfile) {
+    return ResponseEntity.ok(
+        ApiResponse.ok(analyticsService.getSprintAnalytics(podId, jiraSprintId, issueTypeProfile)));
   }
 }

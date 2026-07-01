@@ -2,10 +2,12 @@ package com.sprinklr.sprintplanning.analytics.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(description = "Bugs vs features breakdown")
+import java.util.List;
+
+@Schema(description = "Bugs, stories, and other issue-type breakdown")
 public record BugsVsFeaturesDto(
     CategoryMetricsDto bugs,
-    CategoryMetricsDto features,
-    CategoryMetricsDto other
+    CategoryMetricsDto stories,
+    List<IssueTypeMetricsDto> otherTypes
 ) {
 }

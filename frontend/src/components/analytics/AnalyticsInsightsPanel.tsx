@@ -8,14 +8,21 @@ import { WorkflowStageDistributionPanel } from './WorkflowStageDistributionPanel
 
 interface AnalyticsInsightsPanelProps {
   analytics: AnalyticsResponse
+  includeQaInDomainSummary?: boolean
 }
 
-export function AnalyticsInsightsPanel({ analytics }: AnalyticsInsightsPanelProps) {
+export function AnalyticsInsightsPanel({
+  analytics,
+  includeQaInDomainSummary = false,
+}: AnalyticsInsightsPanelProps) {
   return (
     <div className="space-y-6">
       <section>
         <h2 className="mb-4 text-sm font-semibold text-gray-900">Story points by domain</h2>
-        <DomainStoryPointsSummary items={analytics.domainBreakdown} />
+        <DomainStoryPointsSummary
+          items={analytics.domainBreakdown}
+          includeQa={includeQaInDomainSummary}
+        />
       </section>
 
       <section>
@@ -59,7 +66,7 @@ export function AnalyticsInsightsPanel({ analytics }: AnalyticsInsightsPanelProp
       </section>
 
       <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-semibold text-gray-900">Bugs vs features</h2>
+        <h2 className="text-sm font-semibold text-gray-900">Bugs vs stories</h2>
         <div className="mt-4">
           <BugsVsFeaturesSection data={analytics.bugsVsFeatures} />
         </div>
