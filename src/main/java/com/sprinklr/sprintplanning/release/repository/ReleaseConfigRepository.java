@@ -8,7 +8,7 @@ import java.util.Optional;
 
 public interface ReleaseConfigRepository extends MongoRepository<ReleaseConfigDocument, String> {
 
-  List<ReleaseConfigDocument> findByPodIdAndActiveTrueOrderByNameAsc(String podId);
+  List<ReleaseConfigDocument> findByTeamIdAndActiveTrueOrderByNameAsc(String teamId);
 
-  Optional<ReleaseConfigDocument> findByIdAndPodIdAndActiveTrue(String id, String podId);
+  Optional<ReleaseConfigDocument> findByIdAndTeamIdAndActiveTrue(String id, String teamId);
 }

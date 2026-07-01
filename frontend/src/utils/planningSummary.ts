@@ -39,5 +39,6 @@ export function buildPlanningSummary(planning: PlanningViewDto): PlanningSummary
     totalSelectedIssueCount,
     domainMetrics: metrics,
     riskLevel: determineRiskLevel(totalSelectedStoryPoints, totalAvailableCapacity),
+    capacityAllocationTable: planning.capacityAllocationTable ?? null,
   }
 }

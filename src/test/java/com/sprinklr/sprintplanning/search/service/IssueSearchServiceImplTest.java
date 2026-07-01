@@ -4,6 +4,7 @@ import com.sprinklr.sprintplanning.analytics.calculator.AnalyticsCalculator;
 import com.sprinklr.sprintplanning.analytics.workflow.WorkflowAnalyticsCalculator;
 import com.sprinklr.sprintplanning.analytics.workflow.WorkflowSectionResolver;
 import com.sprinklr.sprintplanning.analytics.dto.AnalyticsResponse;
+import com.sprinklr.sprintplanning.planning.calculator.CapacityAllocationCalculator;
 import com.sprinklr.sprintplanning.planning.calculator.PlanningCalculator;
 import com.sprinklr.sprintplanning.planning.config.PlanningProperties;
 import com.sprinklr.sprintplanning.client.jira.JiraClient;
@@ -68,7 +69,7 @@ class IssueSearchServiceImplTest {
         new JqlMergeHelper(),
         new FilterMergeHelper(),
         new AnalyticsCalculator(new WorkflowAnalyticsCalculator(new WorkflowSectionResolver())),
-        new PlanningCalculator(new PlanningProperties()));
+        new PlanningCalculator(new PlanningProperties(), new CapacityAllocationCalculator()));
   }
 
   @Test
@@ -151,7 +152,7 @@ class IssueSearchServiceImplTest {
   void searchInReleaseFallsBackToLegacyFiltersWhenBaseJqlMissing() {
     ReleaseConfigDocument release = new ReleaseConfigDocument();
     release.setId("release-1");
-    release.setPodId("pod-1");
+    release.setTeamId("team-1");
     release.setFixVersionIncludes(List.of("Q3 2026"));
     release.setBasicFilters(new ReleaseBasicFilters());
 
@@ -242,7 +243,7 @@ class IssueSearchServiceImplTest {
   private ReleaseConfigDocument releaseWithBaseJql(String baseJql) {
     ReleaseConfigDocument release = new ReleaseConfigDocument();
     release.setId("release-1");
-    release.setPodId("pod-1");
+    release.setTeamId("team-1");
     release.setBaseJql(baseJql);
     return release;
   }

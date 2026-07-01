@@ -12,6 +12,7 @@ const emptyRow = (): PersonCapacity => ({
   personName: '',
   domain: 'DEV',
   bandwidthPercent: 100,
+  velocity: 1,
 })
 
 export function CapacityEditor({ initial, onSave }: CapacityEditorProps) {
@@ -53,6 +54,7 @@ export function CapacityEditor({ initial, onSave }: CapacityEditorProps) {
               <th className="px-4 py-3 text-left font-medium text-gray-600">Person</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Domain</th>
               <th className="px-4 py-3 text-right font-medium text-gray-600">Bandwidth %</th>
+              <th className="px-4 py-3 text-right font-medium text-gray-600">Velocity</th>
               <th className="px-4 py-3 text-right font-medium text-gray-600">Actions</th>
             </tr>
           </thead>
@@ -92,6 +94,18 @@ export function CapacityEditor({ initial, onSave }: CapacityEditorProps) {
                     value={row.bandwidthPercent}
                     onChange={(event) =>
                       updateRow(index, { bandwidthPercent: Number(event.target.value) })
+                    }
+                    className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-right text-sm"
+                  />
+                </td>
+                <td className="px-4 py-2">
+                  <input
+                    type="number"
+                    min={0.1}
+                    step={0.1}
+                    value={row.velocity ?? 1}
+                    onChange={(event) =>
+                      updateRow(index, { velocity: Number(event.target.value) })
                     }
                     className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-right text-sm"
                   />

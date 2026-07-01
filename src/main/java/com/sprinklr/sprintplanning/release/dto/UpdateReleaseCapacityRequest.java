@@ -1,5 +1,6 @@
 package com.sprinklr.sprintplanning.release.dto;
 
+import com.sprinklr.sprintplanning.planning.model.CapacityAllocationPercents;
 import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -13,6 +14,7 @@ import java.util.List;
 public record UpdateReleaseCapacityRequest(
     @NotNull @Valid List<PersonCapacity> capacity,
     @Schema(description = "Leave percentage applied to all domain capacity (0-100)")
-    @Min(0) @Max(100) Double leavePercent
+    @Min(0) @Max(100) Double leavePercent,
+    @Valid List<CapacityAllocationPercents> capacityAllocation
 ) {
 }

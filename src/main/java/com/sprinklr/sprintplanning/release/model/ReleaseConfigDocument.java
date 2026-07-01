@@ -4,6 +4,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.Indexed;
 import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
+import com.sprinklr.sprintplanning.planning.model.CapacityAllocationPercents;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
@@ -12,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Document(collection = "release_configs")
-@CompoundIndex(name = "pod_name_idx", def = "{'podId': 1, 'name': 1}", unique = true)
+@CompoundIndex(name = "team_name_idx", def = "{'teamId': 1, 'name': 1}", unique = true)
 public class ReleaseConfigDocument {
 
   @Id
@@ -20,9 +21,6 @@ public class ReleaseConfigDocument {
 
   @Indexed
   private String teamId;
-
-  @Indexed
-  private String podId;
 
   private String name;
 
@@ -37,6 +35,8 @@ public class ReleaseConfigDocument {
   private List<PersonCapacity> capacity = new ArrayList<>();
 
   private Double leavePercent = 0.0;
+
+  private List<CapacityAllocationPercents> capacityAllocation = new ArrayList<>();
 
     private List<String> fixVersionIncludes = new ArrayList<>();
 
@@ -64,14 +64,6 @@ public class ReleaseConfigDocument {
 
   public void setTeamId(String teamId) {
     this.teamId = teamId;
-  }
-
-  public String getPodId() {
-    return podId;
-  }
-
-  public void setPodId(String podId) {
-    this.podId = podId;
   }
 
   public String getName() {
@@ -128,6 +120,14 @@ public class ReleaseConfigDocument {
 
   public void setLeavePercent(Double leavePercent) {
     this.leavePercent = leavePercent;
+  }
+
+  public List<CapacityAllocationPercents> getCapacityAllocation() {
+    return capacityAllocation;
+  }
+
+  public void setCapacityAllocation(List<CapacityAllocationPercents> capacityAllocation) {
+    this.capacityAllocation = capacityAllocation;
   }
 
   public List<String> getFixVersionIncludes() {

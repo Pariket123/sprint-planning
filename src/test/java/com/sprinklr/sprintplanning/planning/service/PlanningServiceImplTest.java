@@ -7,6 +7,7 @@ import com.sprinklr.sprintplanning.common.exception.JiraClientException;
 import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.common.model.JiraFieldConfig;
 import com.sprinklr.sprintplanning.common.model.SprintView;
+import com.sprinklr.sprintplanning.planning.calculator.CapacityAllocationCalculator;
 import com.sprinklr.sprintplanning.planning.calculator.PlanningCalculator;
 import com.sprinklr.sprintplanning.planning.config.PlanningProperties;
 import com.sprinklr.sprintplanning.planning.dto.IssueMoveRequest;
@@ -71,7 +72,7 @@ class PlanningServiceImplTest {
   @BeforeEach
   void setUp() {
     PlanningProperties properties = new PlanningProperties();
-    PlanningCalculator calculator = new PlanningCalculator(properties);
+    PlanningCalculator calculator = new PlanningCalculator(properties, new CapacityAllocationCalculator());
     PlanningMapper planningMapper = Mappers.getMapper(PlanningMapper.class);
     SprintPlanningDocumentAccessor planningDocumentAccessor =
         new SprintPlanningDocumentAccessor(sprintPlanningRepository);

@@ -8,6 +8,7 @@ import com.sprinklr.sprintplanning.planning.dto.PlanningIssuesPageDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningSummaryDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningValidationResultDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningViewDto;
+import com.sprinklr.sprintplanning.planning.dto.UpdateCapacityAllocationRequest;
 import com.sprinklr.sprintplanning.planning.dto.UpdateCapacityRequest;
 import com.sprinklr.sprintplanning.planning.dto.UpdateLeavesRequest;
 import com.sprinklr.sprintplanning.planning.dto.UpdateOverridesRequest;
@@ -81,6 +82,18 @@ public class PlanningController {
     return ResponseEntity.ok(ApiResponse.ok(
         planningMapper.toPlanningDataDto(
             planningService.updateLeaves(podId, jiraSprintId, request.leaves()))));
+  }
+
+  @PutMapping("/capacity-allocation")
+  @Operation(summary = "Upsert roadmap vs bug/support capacity split percentages")
+  public ResponseEntity<ApiResponse<PlanningDataDto>> updateCapacityAllocation(
+      @PathVariable String podId,
+      @PathVariable Long jiraSprintId,
+      @Valid @RequestBody UpdateCapacityAllocationRequest request) {
+    return ResponseEntity.ok(ApiResponse.ok(
+        planningMapper.toPlanningDataDto(
+            planningService.updateCapacityAllocation(
+                podId, jiraSprintId, request.capacityAllocation()))));
   }
 
   @PutMapping("/overrides")

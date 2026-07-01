@@ -12,6 +12,7 @@ import com.sprinklr.sprintplanning.planning.dto.PlanningValidationResultDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningViewDto;
 import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
 import com.sprinklr.sprintplanning.planning.model.LeaveEntry;
+import com.sprinklr.sprintplanning.planning.model.CapacityAllocationPercents;
 import com.sprinklr.sprintplanning.planning.model.PlanningOverride;
 import com.sprinklr.sprintplanning.planning.model.SprintPlanningDocument;
 
@@ -27,6 +28,9 @@ public interface PlanningService {
   SprintPlanningDocument updateLeaves(String podId, Long jiraSprintId, List<LeaveEntry> leaves);
 
   SprintPlanningDocument updateOverrides(String podId, Long jiraSprintId, List<PlanningOverride> overrides);
+
+  SprintPlanningDocument updateCapacityAllocation(
+      String podId, Long jiraSprintId, List<CapacityAllocationPercents> capacityAllocation);
 
   SprintPlanningDocument updateRolloverOverrides(
       String podId, Long jiraSprintId, Map<String, Double> rolloverStoryPoints);

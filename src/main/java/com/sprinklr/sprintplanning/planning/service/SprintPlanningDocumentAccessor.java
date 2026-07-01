@@ -69,6 +69,9 @@ public class SprintPlanningDocumentAccessor {
     if (document.getRolloverIssues() == null) {
       document.setRolloverIssues(new ArrayList<>());
     }
+    if (document.getCapacityAllocation() == null) {
+      document.setCapacityAllocation(new ArrayList<>());
+    }
     return document;
   }
 
@@ -95,6 +98,7 @@ public class SprintPlanningDocumentAccessor {
         person.setPersonName(entry.getDomain().name() + " " + index);
         person.setDomain(entry.getDomain());
         person.setBandwidthPercent(entry.getBandwidthPercent());
+        person.setVelocity(entry.getVelocity());
         migrated.add(person);
       }
     }

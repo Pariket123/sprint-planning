@@ -31,17 +31,17 @@ class PlanningCalculatorTest {
     properties.setDomainImbalanceThreshold(0.6);
     properties.setHighUtilizationThreshold(0.9);
     properties.setMediumUtilizationThreshold(0.75);
-    calculator = new PlanningCalculator(properties);
+    calculator = new PlanningCalculator(properties, new CapacityAllocationCalculator());
   }
 
   @Test
   void calculatesAvailableCapacityWithLeavesAndHolidays() {
     List<PersonCapacity> capacity = List.of(
-        personCapacity("Dev 1", Domain.DEV, 100.0),
-        personCapacity("Dev 2", Domain.DEV, 100.0));
+        personCapacity("Dev 1", Domain.BE, 100.0),
+        personCapacity("Dev 2", Domain.BE, 100.0));
     List<LeaveEntry> leaves = List.of(
         leave("Dev 2", LocalDate.of(2026, 6, 10), LocalDate.of(2026, 6, 10), LeaveType.HOLIDAY, null),
-        leave("Dev 2", LocalDate.of(2026, 6, 11), LocalDate.of(2026, 6, 11), LeaveType.LEAVE, Domain.DEV));
+        leave("Dev 2", LocalDate.of(2026, 6, 11), LocalDate.of(2026, 6, 11), LeaveType.LEAVE, Domain.BE));
 
     // Mon 8 - Fri 19 June 2026 = 10 business days; minus 1 holiday = 9 working days; minus 1 dev leave
     PlanningCalculationInput input = new PlanningCalculationInput(
@@ -51,21 +51,22 @@ class PlanningCalculatorTest {
         capacity,
         leaves,
         Map.of(),
-        Map.of(Domain.DEV, 2.0, Domain.QA, 0.0, Domain.DESIGN, 0.0),
-        List.of(new IssueView("WFM-1", "Story", Domain.DEV, 5.0, "Story", "To Do", StatusCategory.TODO)),
+        Map.of(Domain.BE, 2.0, Domain.QA, 0.0, Domain.DESIGN, 0.0),
+        List.of(new IssueView("WFM-1", "Story", Domain.BE, 5.0, "Story", "To Do", StatusCategory.TODO)),
+        List.of(),
         List.of());
 
     var summary = calculator.calculateSummary(input);
 
-    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.DEV).first()
-        .satisfies(dev -> {
-          assertThat(dev.availableCapacity()).isEqualTo(17.0);
-          assertThat(dev.rollover()).isEqualTo(2.0);
-          assertThat(dev.suggestedCommitment()).isEqualTo(15.0);
-          assertThat(dev.selectedStoryPoints()).isEqualTo(5.0);
-          assertThat(dev.committedStoryPoints()).isZero();
-          assertThat(dev.utilizationPercent()).isZero();
-          assertThat(dev.capacityRisk()).isEqualTo(CapacityRiskStatus.OK);
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.BE).first()
+        .satisfies(be -> {
+          assertThat(be.availableCapacity()).isEqualTo(17.0);
+          assertThat(be.rollover()).isEqualTo(2.0);
+          assertThat(be.suggestedCommitment()).isEqualTo(15.0);
+          assertThat(be.selectedStoryPoints()).isEqualTo(5.0);
+          assertThat(be.committedStoryPoints()).isZero();
+          assertThat(be.utilizationPercent()).isZero();
+          assertThat(be.capacityRisk()).isEqualTo(CapacityRiskStatus.OK);
         });
     assertThat(summary.riskLevel()).isEqualTo(RiskLevel.LOW);
   }
@@ -73,8 +74,8 @@ class PlanningCalculatorTest {
   @Test
   void aggregatesPersonCapacityByDomain() {
     List<PersonCapacity> capacity = List.of(
-        personCapacity("Alice", Domain.DEV, 80.0),
-        personCapacity("Bob", Domain.DEV, 100.0),
+        personCapacity("Alice", Domain.BE, 80.0),
+        personCapacity("Bob", Domain.BE, 100.0),
         personCapacity("Carol", Domain.QA, 100.0));
 
     PlanningCalculationInput input = new PlanningCalculationInput(
@@ -86,12 +87,13 @@ class PlanningCalculatorTest {
         Map.of(),
         Map.of(),
         List.of(),
+        List.of(),
         List.of());
 
     var summary = calculator.calculateSummary(input);
 
-    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.DEV).first()
-        .satisfies(dev -> assertThat(dev.availableCapacity()).isEqualTo(9.0));
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.BE).first()
+        .satisfies(be -> assertThat(be.availableCapacity()).isEqualTo(9.0));
     assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.QA).first()
         .satisfies(qa -> assertThat(qa.availableCapacity()).isEqualTo(5.0));
   }
@@ -120,7 +122,7 @@ class PlanningCalculatorTest {
   @Test
   void validatesOverCapacityAndDomainImbalance() {
     List<PersonCapacity> capacity = List.of(
-        personCapacity("Dev", Domain.DEV, 100.0),
+        personCapacity("Dev", Domain.BE, 100.0),
         personCapacity("QA", Domain.QA, 100.0));
 
     PlanningCalculationInput input = new PlanningCalculationInput(
@@ -130,10 +132,11 @@ class PlanningCalculatorTest {
         capacity,
         List.of(),
         Map.of(),
-        Map.of(Domain.DEV, 0.0, Domain.QA, 0.0, Domain.DESIGN, 0.0),
+        Map.of(Domain.BE, 0.0, Domain.QA, 0.0, Domain.DESIGN, 0.0),
         List.of(
-            new IssueView("WFM-1", "A", Domain.DEV, 8.0, "Story", "To Do", StatusCategory.TODO),
-            new IssueView("WFM-2", "B", Domain.DEV, 7.0, "Story", "To Do", StatusCategory.TODO)),
+            new IssueView("WFM-1", "A", Domain.BE, 8.0, "Story", "To Do", StatusCategory.TODO),
+            new IssueView("WFM-2", "B", Domain.BE, 7.0, "Story", "To Do", StatusCategory.TODO)),
+        List.of(),
         List.of());
 
     var summary = calculator.calculateSummary(input);
@@ -159,7 +162,8 @@ class PlanningCalculatorTest {
         Map.of(),
         Map.of(),
         List.of(),
-        List.of(new IssueView("WFM-10", "Committed", Domain.BE, 11.0, "Story", "To Do", StatusCategory.TODO)));
+        List.of(new IssueView("WFM-10", "Committed", Domain.BE, 11.0, "Story", "To Do", StatusCategory.TODO)),
+        List.of());
 
     var summary = calculator.calculateSummary(input);
 
@@ -167,13 +171,13 @@ class PlanningCalculatorTest {
         .satisfies(be -> {
           assertThat(be.availableCapacity()).isEqualTo(10.0);
           assertThat(be.committedStoryPoints()).isEqualTo(11.0);
-          assertThat(be.utilizationPercent()).isEqualTo(110.0);
+          assertThat(be.utilizationPercent()).isEqualTo(183.33);
           assertThat(be.capacityRisk()).isEqualTo(CapacityRiskStatus.OVER_CAPACITY);
         });
   }
 
   @Test
-  void discoversDomainsDynamicallyFromCapacityAndIssues() {
+  void domainMetricsIncludeAllEngineeringDomains() {
     PlanningCalculationInput input = new PlanningCalculationInput(
         13L,
         Instant.parse("2026-06-08T00:00:00Z"),
@@ -183,17 +187,20 @@ class PlanningCalculatorTest {
         Map.of(),
         Map.of(),
         List.of(),
-        List.of(new IssueView("WFM-11", "AI work", Domain.AI, 2.0, "Story", "To Do", StatusCategory.TODO)));
+        List.of(new IssueView("WFM-11", "AI work", Domain.AI, 2.0, "Story", "To Do", StatusCategory.TODO)),
+        List.of());
 
     var summary = calculator.calculateSummary(input);
 
     assertThat(summary.domainMetrics()).extracting("domain")
-        .containsExactly(Domain.AI, Domain.PRODUCT);
+        .containsExactly(Domain.BE, Domain.UI, Domain.AI, Domain.QA);
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.AI).first()
+        .satisfies(ai -> assertThat(ai.committedStoryPoints()).isEqualTo(2.0));
   }
 
   @Test
   void validatesCommittedOverCapacity() {
-    List<PersonCapacity> capacity = List.of(personCapacity("Dev", Domain.DEV, 100.0));
+    List<PersonCapacity> capacity = List.of(personCapacity("Dev", Domain.BE, 100.0));
 
     PlanningCalculationInput input = new PlanningCalculationInput(
         14L,
@@ -204,20 +211,21 @@ class PlanningCalculatorTest {
         Map.of(),
         Map.of(),
         List.of(),
-        List.of(new IssueView("WFM-9", "Committed", Domain.DEV, 6.0, "Story", "To Do", StatusCategory.TODO)));
+        List.of(new IssueView("WFM-9", "Committed", Domain.BE, 6.0, "Story", "To Do", StatusCategory.TODO)),
+        List.of());
 
     var summary = calculator.calculateSummary(input);
     var validation = calculator.validate(summary);
 
-    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.DEV).first()
-        .satisfies(dev -> assertThat(dev.capacityRisk()).isEqualTo(CapacityRiskStatus.OVER_CAPACITY));
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.BE).first()
+        .satisfies(be -> assertThat(be.capacityRisk()).isEqualTo(CapacityRiskStatus.OVER_CAPACITY));
     assertThat(validation.warnings()).extracting("code")
         .contains(PlanningWarningCode.OVER_CAPACITY);
   }
 
   @Test
   void calculatesNearCapacityRiskWhenCommittedUtilizationIsHigh() {
-    List<PersonCapacity> capacity = List.of(personCapacity("Dev", Domain.DEV, 100.0));
+    List<PersonCapacity> capacity = List.of(personCapacity("Dev", Domain.BE, 100.0));
 
     PlanningCalculationInput input = new PlanningCalculationInput(
         15L,
@@ -228,15 +236,16 @@ class PlanningCalculatorTest {
         Map.of(),
         Map.of(),
         List.of(),
-        List.of(new IssueView("WFM-8", "Committed", Domain.DEV, 4.5, "Story", "To Do", StatusCategory.TODO)));
+        List.of(new IssueView("WFM-8", "Committed", Domain.BE, 4.5, "Story", "To Do", StatusCategory.TODO)),
+        List.of());
 
     var summary = calculator.calculateSummary(input);
 
-    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.DEV).first()
-        .satisfies(dev -> {
-          assertThat(dev.committedStoryPoints()).isEqualTo(4.5);
-          assertThat(dev.utilizationPercent()).isEqualTo(90.0);
-          assertThat(dev.capacityRisk()).isEqualTo(CapacityRiskStatus.NEAR_CAPACITY);
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.BE).first()
+        .satisfies(be -> {
+          assertThat(be.committedStoryPoints()).isEqualTo(4.5);
+          assertThat(be.utilizationPercent()).isEqualTo(150.0);
+          assertThat(be.capacityRisk()).isEqualTo(CapacityRiskStatus.OVER_CAPACITY);
         });
   }
 
@@ -280,7 +289,7 @@ class PlanningCalculatorTest {
         new IssueView("SCRUM-2", "UI story", Domain.UI, 4.0, "Story", "To Do", StatusCategory.TODO));
 
     var summary = calculator.calculateReleaseSummary(
-        "release-1", 10, null, capacity, 0.0, issues);
+        "release-1", 10, null, capacity, 0.0, List.of(), issues);
 
     assertThat(summary.releaseId()).isEqualTo("release-1");
     assertThat(summary.durationDays()).isEqualTo(10);
@@ -291,21 +300,20 @@ class PlanningCalculatorTest {
           assertThat(be.availableCapacity()).isEqualTo(10.0);
           assertThat(be.committedStoryPoints()).isEqualTo(8.0);
           assertThat(be.rollover()).isZero();
-          assertThat(be.capacityRisk()).isEqualTo(CapacityRiskStatus.OK);
+          assertThat(be.utilizationPercent()).isEqualTo(133.33);
+          assertThat(be.capacityRisk()).isEqualTo(CapacityRiskStatus.OVER_CAPACITY);
         });
     assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.UI).first()
         .satisfies(ui -> {
           assertThat(ui.availableCapacity()).isEqualTo(5.0);
           assertThat(ui.committedStoryPoints()).isEqualTo(4.0);
-          assertThat(ui.utilizationPercent()).isEqualTo(80.0);
+          assertThat(ui.utilizationPercent()).isEqualTo(133.33);
         });
   }
 
   @Test
   void calculatesReleaseSummaryWithStageDomainStoryPointsFromAllocations() {
-    List<PersonCapacity> capacity = List.of(
-        personCapacity("QA 1", Domain.QA, 100.0),
-        personCapacity("Design 1", Domain.DESIGN, 100.0));
+    List<PersonCapacity> capacity = List.of(personCapacity("QA 1", Domain.QA, 100.0));
 
     List<IssueView> issues = List.of(
         new IssueView(
@@ -324,15 +332,28 @@ class PlanningCalculatorTest {
             List.of()));
 
     var summary = calculator.calculateReleaseSummary(
-        "release-1", 10, null, capacity, 0.0, issues);
+        "release-1", 10, null, capacity, 0.0, List.of(), issues);
 
     assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.QA).first()
         .satisfies(qa -> {
           assertThat(qa.committedStoryPoints()).isEqualTo(3.0);
           assertThat(qa.selectedIssueCount()).isEqualTo(1);
         });
-    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.DESIGN).first()
-        .satisfies(design -> assertThat(design.committedStoryPoints()).isEqualTo(1.0));
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.BE).first()
+        .satisfies(be -> assertThat(be.committedStoryPoints()).isEqualTo(5.0));
+  }
+
+  @Test
+  void appliesVelocityMultiplierToAvailableCapacity() {
+    PersonCapacity highVelocity = personCapacity("Dev", Domain.BE, 100.0);
+    highVelocity.setVelocity(1.5);
+
+    var summary = calculator.calculateReleaseSummary(
+        "release-1", 10, null, List.of(highVelocity), 0.0, List.of(), List.of());
+
+    assertThat(summary.totalAvailableCapacity()).isEqualTo(15.0);
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.BE).first()
+        .satisfies(be -> assertThat(be.availableCapacity()).isEqualTo(15.0));
   }
 
   @Test
@@ -340,7 +361,7 @@ class PlanningCalculatorTest {
     List<PersonCapacity> capacity = List.of(personCapacity("Alice", Domain.BE, 100.0));
 
     var summary = calculator.calculateReleaseSummary(
-        "release-1", 10, null, capacity, 10.0, List.of());
+        "release-1", 10, null, capacity, 10.0, List.of(), List.of());
 
     assertThat(summary.totalAvailableCapacity()).isEqualTo(9.0);
     assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.BE).first()

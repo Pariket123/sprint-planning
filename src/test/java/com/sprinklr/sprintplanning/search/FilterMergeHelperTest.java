@@ -22,7 +22,6 @@ class FilterMergeHelperTest {
   @Test
   void mergesReleaseFixVersionIncludesWithRequestFilters() {
     ReleaseConfigDocument release = releaseWith(
-        "pod-1",
         List.of("Q3 2026", "Release-12.4"),
         List.of("Deprecated"),
         basicFilters(List.of("Story"), List.of("To Do"), List.of("BE"), List.of("High"), null));
@@ -42,7 +41,6 @@ class FilterMergeHelperTest {
   @Test
   void returnsEmptyWhenReleaseAndRequestFixVersionsConflict() {
     ReleaseConfigDocument release = releaseWith(
-        "pod-1",
         List.of("Q3 2026"),
         List.of(),
         basicFilters(null, null, null, null, null));
@@ -60,7 +58,6 @@ class FilterMergeHelperTest {
   @Test
   void doesNotConstrainFixVersionsWhenReleaseIncludesEmpty() {
     ReleaseConfigDocument release = releaseWith(
-        "pod-1",
         List.of(),
         List.of(),
         basicFilters(null, null, null, null, null));
@@ -79,7 +76,6 @@ class FilterMergeHelperTest {
   @Test
   void intersectsBasicFilters() {
     ReleaseConfigDocument release = releaseWith(
-        "pod-1",
         List.of(),
         List.of(),
         basicFilters(List.of("Story", "Bug"), List.of("To Do"), List.of("BE", "UI"), null, null));
@@ -110,12 +106,10 @@ class FilterMergeHelperTest {
   }
 
   private ReleaseConfigDocument releaseWith(
-      String podId,
       List<String> fixVersionIncludes,
       List<String> fixVersionExcludes,
       ReleaseBasicFilters basicFilters) {
     ReleaseConfigDocument release = new ReleaseConfigDocument();
-    release.setPodId(podId);
     release.setFixVersionIncludes(fixVersionIncludes);
     release.setFixVersionExcludes(fixVersionExcludes);
     release.setBasicFilters(basicFilters);

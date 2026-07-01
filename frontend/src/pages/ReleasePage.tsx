@@ -87,7 +87,7 @@ export function ReleasePage() {
         title="Create/View Release"
         description={
           view === 'list'
-            ? 'Manage release configurations for this pod.'
+            ? 'Manage team release configurations. Releases are shared across all pods in the team.'
             : 'Search issues scoped to the selected release.'
         }
       />

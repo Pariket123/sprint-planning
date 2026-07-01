@@ -9,6 +9,7 @@ import com.sprinklr.sprintplanning.planning.dto.CapacityRiskStatus;
 import com.sprinklr.sprintplanning.planning.dto.DomainPlanningMetricsDto;
 import com.sprinklr.sprintplanning.planning.dto.RiskLevel;
 import com.sprinklr.sprintplanning.release.dto.ReleaseCapacitySummaryDto;
+import com.sprinklr.sprintplanning.planning.dto.CapacityAllocationTableDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningSummaryDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningValidationResultDto;
 import com.sprinklr.sprintplanning.planning.dto.PlanningWarningCode;
@@ -16,6 +17,7 @@ import com.sprinklr.sprintplanning.planning.dto.PlanningWarningDto;
 import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
 import com.sprinklr.sprintplanning.planning.model.LeaveEntry;
 import com.sprinklr.sprintplanning.planning.model.LeaveType;
+import com.sprinklr.sprintplanning.planning.model.CapacityAllocationPercents;
 import org.springframework.stereotype.Component;
 
 import java.time.DayOfWeek;
@@ -37,9 +39,13 @@ public class PlanningCalculator {
   private static final Set<Domain> DEFAULT_DOMAINS = EnumSet.of(Domain.DEV, Domain.QA, Domain.DESIGN);
 
   private final PlanningProperties properties;
+  private final CapacityAllocationCalculator capacityAllocationCalculator;
 
-  public PlanningCalculator(PlanningProperties properties) {
+  public PlanningCalculator(
+      PlanningProperties properties,
+      CapacityAllocationCalculator capacityAllocationCalculator) {
     this.properties = properties;
+    this.capacityAllocationCalculator = capacityAllocationCalculator;
   }
 
   public Map<Domain, Double> computeRolloverFromIssues(List<IssueView> previousSprintIssues) {
@@ -97,21 +103,26 @@ public class PlanningCalculator {
     Map<Domain, Double> rollover = resolveRollover(input.computedRollover(), input.manualRolloverOverrides());
     Map<Domain, SelectionMetrics> selection = calculateIssueMetrics(input.selectedIssues(), planningDomains);
     Map<Domain, SelectionMetrics> committed = calculateIssueMetrics(input.committedIssues(), planningDomains);
+    CapacityAllocationTableDto allocationTable = capacityAllocationCalculator.buildTable(
+        availableCapacity, input.capacityAllocation());
 
     List<DomainPlanningMetricsDto> domainMetrics = new ArrayList<>();
     double totalAvailable = 0;
     double totalRollover = 0;
     double totalSelected = 0;
+    double totalCommitted = 0;
     int totalIssueCount = 0;
 
-    for (Domain domain : sortedDomains(planningDomains)) {
+    for (Domain domain : CapacityAllocationCalculator.ENGINEERING_DOMAINS) {
       double available = availableCapacity.getOrDefault(domain, 0.0);
       double domainRollover = rollover.getOrDefault(domain, 0.0);
       SelectionMetrics selectedMetrics = selection.getOrDefault(domain, SelectionMetrics.EMPTY);
       SelectionMetrics committedMetrics = committed.getOrDefault(domain, SelectionMetrics.EMPTY);
       double suggestedCommitment = Math.max(0, available - domainRollover);
       double committedStoryPoints = committedMetrics.storyPoints();
-      double utilizationPercent = calculateUtilizationPercent(committedStoryPoints, available);
+      double plannedRoadmapCapacity =
+          capacityAllocationCalculator.plannedRoadmapStoryPoints(allocationTable, domain);
+      double utilizationPercent = calculateUtilizationPercent(committedStoryPoints, plannedRoadmapCapacity);
 
       domainMetrics.add(new DomainPlanningMetricsDto(
           domain,
@@ -122,15 +133,18 @@ public class PlanningCalculator {
           round(suggestedCommitment),
           round(committedStoryPoints),
           round(utilizationPercent),
-          determineCapacityRisk(committedStoryPoints, available)));
+          determineCapacityRisk(committedStoryPoints, plannedRoadmapCapacity)));
 
       totalAvailable += available;
       totalRollover += domainRollover;
       totalSelected += selectedMetrics.storyPoints();
+      totalCommitted += committedStoryPoints;
       totalIssueCount += selectedMetrics.issueCount();
     }
 
-    RiskLevel riskLevel = determineRiskLevel(totalSelected, totalAvailable);
+    double totalPlannedRoadmap = capacityAllocationCalculator.plannedRoadmapStoryPoints(
+        allocationTable, null);
+    RiskLevel riskLevel = determineRiskLevel(totalCommitted, totalPlannedRoadmap);
 
     return new PlanningSummaryDto(
         input.jiraSprintId(),
@@ -139,7 +153,8 @@ public class PlanningCalculator {
         round(totalSelected),
         totalIssueCount,
         domainMetrics,
-        riskLevel);
+        riskLevel,
+        allocationTable);
   }
 
   public ReleaseCapacitySummaryDto calculateReleaseSummary(
@@ -148,6 +163,7 @@ public class PlanningCalculator {
       LocalDate releaseStart,
       List<PersonCapacity> capacity,
       double leavePercent,
+      List<CapacityAllocationPercents> capacityAllocation,
       List<IssueView> issues) {
     int duration = durationDays != null ? Math.max(0, durationDays) : 0;
     LocalDate releaseEnd = resolveReleaseEnd(releaseStart, duration);
@@ -174,17 +190,21 @@ public class PlanningCalculator {
     }
 
     Map<Domain, SelectionMetrics> issueMetrics = calculateIssueMetrics(issues, planningDomains);
+    CapacityAllocationTableDto allocationTable = capacityAllocationCalculator.buildTable(
+        availableCapacity, capacityAllocation);
 
     List<DomainPlanningMetricsDto> domainMetrics = new ArrayList<>();
     double totalAvailable = 0;
     double totalCommitted = 0;
     int totalIssueCount = 0;
 
-    for (Domain domain : sortedDomains(planningDomains)) {
+    for (Domain domain : CapacityAllocationCalculator.ENGINEERING_DOMAINS) {
       double available = availableCapacity.getOrDefault(domain, 0.0);
       SelectionMetrics metrics = issueMetrics.getOrDefault(domain, SelectionMetrics.EMPTY);
       double committedStoryPoints = metrics.storyPoints();
-      double utilizationPercent = calculateUtilizationPercent(committedStoryPoints, available);
+      double plannedRoadmapCapacity =
+          capacityAllocationCalculator.plannedRoadmapStoryPoints(allocationTable, domain);
+      double utilizationPercent = calculateUtilizationPercent(committedStoryPoints, plannedRoadmapCapacity);
 
       domainMetrics.add(new DomainPlanningMetricsDto(
           domain,
@@ -192,17 +212,19 @@ public class PlanningCalculator {
           0.0,
           round(committedStoryPoints),
           metrics.issueCount(),
-          round(available),
+          round(plannedRoadmapCapacity),
           round(committedStoryPoints),
           round(utilizationPercent),
-          determineCapacityRisk(committedStoryPoints, available)));
+          determineCapacityRisk(committedStoryPoints, plannedRoadmapCapacity)));
 
       totalAvailable += available;
       totalCommitted += committedStoryPoints;
       totalIssueCount += metrics.issueCount();
     }
 
-    RiskLevel riskLevel = determineRiskLevel(totalCommitted, totalAvailable);
+    double totalPlannedRoadmap = capacityAllocationCalculator.plannedRoadmapStoryPoints(
+        allocationTable, null);
+    RiskLevel riskLevel = determineRiskLevel(totalCommitted, totalPlannedRoadmap);
 
     return new ReleaseCapacitySummaryDto(
         releaseId,
@@ -211,7 +233,8 @@ public class PlanningCalculator {
         round(totalCommitted),
         totalIssueCount,
         domainMetrics,
-        riskLevel);
+        riskLevel,
+        allocationTable);
   }
 
   LocalDate resolveReleaseEnd(LocalDate start, int durationDays) {
@@ -314,7 +337,7 @@ public class PlanningCalculator {
           planningDomains.add(entry.getDomain());
           available.put(entry.getDomain(), 0.0);
         }
-        double memberDays = (entry.getBandwidthPercent() / 100.0) * workingDays;
+        double memberDays = (entry.getBandwidthPercent() / 100.0) * workingDays * entry.getVelocity();
         available.merge(entry.getDomain(), memberDays, Double::sum);
       }
     }
@@ -329,7 +352,8 @@ public class PlanningCalculator {
           continue;
         }
         double bandwidthPercent = resolveLeaveBandwidth(leave, capacity);
-        double deduction = leaveDays * (bandwidthPercent / 100.0);
+        double velocity = resolveLeaveVelocity(leave, capacity);
+        double deduction = leaveDays * (bandwidthPercent / 100.0) * velocity;
         if (leave.getDomain() == null) {
           for (Domain domain : planningDomains) {
             available.put(domain, available.get(domain) - deduction);
@@ -356,6 +380,18 @@ public class PlanningCalculator {
       }
     }
     return 100.0;
+  }
+
+  private double resolveLeaveVelocity(LeaveEntry leave, List<PersonCapacity> capacity) {
+    if (leave.getPersonName() != null && !leave.getPersonName().isBlank() && capacity != null) {
+      for (PersonCapacity person : capacity) {
+        if (person != null
+            && leave.getPersonName().equalsIgnoreCase(person.getPersonName())) {
+          return person.getVelocity();
+        }
+      }
+    }
+    return 1.0;
   }
 
   private Map<Domain, SelectionMetrics> calculateIssueMetrics(List<IssueView> issues, Set<Domain> planningDomains) {

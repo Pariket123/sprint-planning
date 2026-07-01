@@ -1,5 +1,6 @@
 package com.sprinklr.sprintplanning.release.dto;
 
+import com.sprinklr.sprintplanning.planning.dto.CapacityAllocationTableDto;
 import com.sprinklr.sprintplanning.planning.dto.DomainPlanningMetricsDto;
 import com.sprinklr.sprintplanning.planning.dto.RiskLevel;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -14,6 +15,7 @@ public record ReleaseCapacitySummaryDto(
     double totalCommittedStoryPoints,
     int totalIssueCount,
     List<DomainPlanningMetricsDto> domainMetrics,
-    RiskLevel riskLevel
+    RiskLevel riskLevel,
+    CapacityAllocationTableDto capacityAllocationTable
 ) {
 }

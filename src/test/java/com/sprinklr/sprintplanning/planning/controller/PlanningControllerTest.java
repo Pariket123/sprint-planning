@@ -58,6 +58,7 @@ class PlanningControllerTest {
         List.of(),
         List.of(),
         List.of(),
+        List.of(),
         Map.of(),
         Map.of("DEV", 2.0),
         0,
@@ -66,7 +67,8 @@ class PlanningControllerTest {
         List.of(),
         List.of(),
         List.of(),
-        List.of());
+        List.of(),
+        null);
     when(planningService.getPlanningView("pod-1", 10L)).thenReturn(view);
 
     mockMvc.perform(get("/api/v1/pods/pod-1/sprints/10/planning"))
@@ -122,7 +124,8 @@ class PlanningControllerTest {
         2,
         List.of(new DomainPlanningMetricsDto(
             Domain.DEV, 20.0, 2.0, 8.0, 2, 18.0, 6.0, 30.0, CapacityRiskStatus.OK)),
-        RiskLevel.LOW);
+        RiskLevel.LOW,
+        null);
     when(planningService.calculateSummary("pod-1", 10L)).thenReturn(summary);
 
     mockMvc.perform(get("/api/v1/pods/pod-1/sprints/10/planning/summary"))
@@ -152,6 +155,7 @@ class PlanningControllerTest {
         List.of(),
         List.of(),
         List.of(),
+        List.of(),
         Map.of(),
         Map.of("DEV", 2.0),
         0,
@@ -161,7 +165,8 @@ class PlanningControllerTest {
         List.of(),
         List.of(),
         List.of(new DomainPlanningMetricsDto(
-            Domain.DEV, 20.0, 2.0, 8.0, 2, 18.0, 6.0, 30.0, CapacityRiskStatus.OK)));
+            Domain.BE, 20.0, 2.0, 8.0, 2, 18.0, 6.0, 30.0, CapacityRiskStatus.OK)),
+        null);
     when(planningService.getPlanningView("pod-1", 10L)).thenReturn(view);
 
     mockMvc.perform(get("/api/v1/pods/pod-1/sprints/10/planning"))

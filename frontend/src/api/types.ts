@@ -57,7 +57,6 @@ export interface SprintView {
 export interface ReleaseResponse {
   id: string
   teamId: string
-  podId: string
   name: string
   description: string | null
   baseJql: string | null
@@ -65,6 +64,7 @@ export interface ReleaseResponse {
   startDate: string | null
   capacity: PersonCapacity[] | null
   leavePercent: number | null
+  capacityAllocation: CapacityAllocationPercents[] | null
   active: boolean
   createdAt: string | null
   updatedAt: string | null
@@ -99,11 +99,13 @@ export interface ReleaseCapacitySummaryDto {
   totalIssueCount: number
   domainMetrics: DomainPlanningMetricsDto[]
   riskLevel: RiskLevel
+  capacityAllocationTable: CapacityAllocationTableDto | null
 }
 
 export interface UpdateReleaseCapacityRequest {
   capacity: PersonCapacity[]
   leavePercent?: number | null
+  capacityAllocation?: CapacityAllocationPercents[] | null
 }
 
 export interface IssueSearchQueryParams {
@@ -277,6 +279,27 @@ export interface PersonCapacity {
   personName: string
   domain: Domain
   bandwidthPercent: number
+  velocity?: number
+}
+
+export interface CapacityAllocationPercents {
+  key: string
+  roadmapPercent: number
+  bugSupportPercent: number
+}
+
+export interface CapacityAllocationRowDto {
+  key: string
+  label: string
+  availableStoryPoints: number
+  roadmapPercent: number
+  bugSupportPercent: number
+  plannedRoadmapStoryPoints: number
+  plannedBugSupportStoryPoints: number
+}
+
+export interface CapacityAllocationTableDto {
+  rows: CapacityAllocationRowDto[]
 }
 
 export interface LeaveEntry {
@@ -323,6 +346,7 @@ export interface PlanningViewDto {
   capacity: PersonCapacity[]
   leaves: LeaveEntry[]
   overrides: PlanningOverride[]
+  capacityAllocation: CapacityAllocationPercents[]
   rolloverStoryPoints: Record<string, number>
   resolvedRollover: Record<string, number>
   sprintIssueCount: number
@@ -332,6 +356,7 @@ export interface PlanningViewDto {
   committedIssueKeys: string[]
   rolloverIssues: RolloverIssueDto[]
   domainMetrics: DomainPlanningMetricsDto[]
+  capacityAllocationTable: CapacityAllocationTableDto | null
 }
 
 export interface PlanningIssuesPageDto {
@@ -351,6 +376,7 @@ export interface PlanningSummaryDto {
   totalSelectedIssueCount: number
   domainMetrics: DomainPlanningMetricsDto[]
   riskLevel: RiskLevel
+  capacityAllocationTable: CapacityAllocationTableDto | null
 }
 
 export interface PlanningDataDto {
@@ -362,6 +388,10 @@ export interface PlanningDataDto {
   overrides: PlanningOverride[]
   rolloverStoryPoints: Record<string, number>
   updatedAt: string | null
+}
+
+export interface UpdateCapacityAllocationRequest {
+  capacityAllocation: CapacityAllocationPercents[]
 }
 
 export interface PlanningWarningDto {

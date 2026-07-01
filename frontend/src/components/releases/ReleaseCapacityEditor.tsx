@@ -13,6 +13,7 @@ const emptyRow = (): PersonCapacity => ({
   personName: '',
   domain: 'DEV',
   bandwidthPercent: 100,
+  velocity: 1,
 })
 
 export function ReleaseCapacityEditor({
@@ -93,13 +94,14 @@ export function ReleaseCapacityEditor({
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Person</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Domain</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-600">Bandwidth %</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">Velocity</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-600">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-sm text-gray-500">
+                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-500">
                     No team members added yet. Use &quot;Add row&quot; to define release capacity.
                   </td>
                 </tr>
@@ -139,6 +141,18 @@ export function ReleaseCapacityEditor({
                         value={row.bandwidthPercent}
                         onChange={(event) =>
                           updateRow(index, { bandwidthPercent: Number(event.target.value) })
+                        }
+                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-right text-sm"
+                      />
+                    </td>
+                    <td className="px-4 py-2">
+                      <input
+                        type="number"
+                        min={0.1}
+                        step={0.1}
+                        value={row.velocity ?? 1}
+                        onChange={(event) =>
+                          updateRow(index, { velocity: Number(event.target.value) })
                         }
                         className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-right text-sm"
                       />

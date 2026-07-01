@@ -5,6 +5,7 @@ import {
   getPlanning,
   listSprints,
   updateCapacity,
+  updateCapacityAllocation,
   updateLeaves,
   updateOverrides,
   validatePlanning,
@@ -24,6 +25,7 @@ import {
 } from '../components/common'
 import { BacklogTab } from '../components/planning/BacklogTab'
 import { CapacityEditor } from '../components/planning/CapacityEditor'
+import { CapacityAllocationEditor } from '../components/planning/CapacityAllocationEditor'
 import { DomainMetricsTable } from '../components/planning/DomainMetricsTable'
 import { IssuesTab } from '../components/planning/IssuesTab'
 import { LeavesEditor } from '../components/planning/LeavesEditor'
@@ -273,6 +275,35 @@ export function PlanSprintPage() {
                   />
                 </div>
               </section>
+
+              <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                <h2 className="text-sm font-semibold text-gray-900">Capacity allocation</h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Split available capacity between roadmap work and bug/support work by domain.
+                </p>
+                <div className="mt-4">
+                  <CapacityAllocationEditor
+                    table={planning.capacityAllocationTable}
+                    initialPercents={planning.capacityAllocation ?? []}
+                    onSave={async (capacityAllocation) => {
+                      await updateCapacityAllocation(podId, selectedSprintId, { capacityAllocation })
+                      await loadPlanning()
+                    }}
+                  />
+                </div>
+              </section>
+
+              {planning.domainMetrics && planning.domainMetrics.length > 0 && (
+                <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <h2 className="text-sm font-semibold text-gray-900">Domain metrics</h2>
+                  <p className="mt-1 text-sm text-gray-600">
+                    BE, UI, AI, and QA utilization is measured against planned roadmap capacity.
+                  </p>
+                  <div className="mt-4">
+                    <DomainMetricsTable metrics={planning.domainMetrics} />
+                  </div>
+                </section>
+              )}
             </div>
           )}
 

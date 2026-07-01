@@ -184,7 +184,7 @@ export function PodDashboardPage() {
           />
           <ActionCard
             title="Create/View Release"
-            description="Configure release filters and search release issues for this pod."
+            description="Configure team release filters and search release issues."
             to={`/pods/${podId}/releases`}
             icon={Package}
           />

@@ -1,6 +1,7 @@
 package com.sprinklr.sprintplanning.release.controller;
 
 import com.sprinklr.sprintplanning.common.dto.ApiResponse;
+import com.sprinklr.sprintplanning.planning.dto.UpdateCapacityAllocationRequest;
 import com.sprinklr.sprintplanning.release.dto.CreateReleaseRequest;
 import com.sprinklr.sprintplanning.release.dto.ReleaseResponse;
 import com.sprinklr.sprintplanning.release.dto.UpdateReleaseCapacityRequest;
@@ -23,7 +24,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/pods/{podId}/releases")
-@Tag(name = "Releases", description = "Pod-scoped release configuration")
+@Tag(name = "Releases", description = "Team-scoped release configuration (pod context required)")
 public class ReleaseController {
 
   private final ReleaseService releaseService;
@@ -33,13 +34,13 @@ public class ReleaseController {
   }
 
   @GetMapping
-  @Operation(summary = "List active releases for a pod/module")
+  @Operation(summary = "List active releases for the pod's team")
   public ResponseEntity<ApiResponse<List<ReleaseResponse>>> listReleases(@PathVariable String podId) {
     return ResponseEntity.ok(ApiResponse.ok(releaseService.listReleases(podId)));
   }
 
   @GetMapping("/{releaseId}")
-  @Operation(summary = "Get release configuration for a pod/module")
+  @Operation(summary = "Get a team release (pod context required)")
   public ResponseEntity<ApiResponse<ReleaseResponse>> getRelease(
       @PathVariable String podId,
       @PathVariable String releaseId) {
@@ -47,7 +48,7 @@ public class ReleaseController {
   }
 
   @PostMapping
-  @Operation(summary = "Create a release for a pod/module")
+  @Operation(summary = "Create a team release (pod context required)")
   public ResponseEntity<ApiResponse<ReleaseResponse>> createRelease(
       @PathVariable String podId,
       @Valid @RequestBody CreateReleaseRequest request) {
@@ -55,7 +56,7 @@ public class ReleaseController {
   }
 
   @PutMapping("/{releaseId}")
-  @Operation(summary = "Update a release for a pod/module")
+  @Operation(summary = "Update a team release (pod context required)")
   public ResponseEntity<ApiResponse<ReleaseResponse>> updateRelease(
       @PathVariable String podId,
       @PathVariable String releaseId,
@@ -64,7 +65,7 @@ public class ReleaseController {
   }
 
   @DeleteMapping("/{releaseId}")
-  @Operation(summary = "Soft-delete/deactivate a release for a pod/module")
+  @Operation(summary = "Soft-delete/deactivate a team release (pod context required)")
   public ResponseEntity<ApiResponse<ReleaseResponse>> deactivateRelease(
       @PathVariable String podId,
       @PathVariable String releaseId) {
@@ -78,5 +79,15 @@ public class ReleaseController {
       @PathVariable String releaseId,
       @Valid @RequestBody UpdateReleaseCapacityRequest request) {
     return ResponseEntity.ok(ApiResponse.ok(releaseService.updateCapacity(podId, releaseId, request)));
+  }
+
+  @PutMapping("/{releaseId}/capacity-allocation")
+  @Operation(summary = "Upsert roadmap vs bug/support capacity split percentages for a release")
+  public ResponseEntity<ApiResponse<ReleaseResponse>> updateCapacityAllocation(
+      @PathVariable String podId,
+      @PathVariable String releaseId,
+      @Valid @RequestBody UpdateCapacityAllocationRequest request) {
+    return ResponseEntity.ok(ApiResponse.ok(
+        releaseService.updateCapacityAllocation(podId, releaseId, request.capacityAllocation())));
   }
 }

@@ -2,7 +2,9 @@ package com.sprinklr.sprintplanning.planning.calculator;
 
 import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
+import com.sprinklr.sprintplanning.planning.model.CapacityAllocationPercents;
 import com.sprinklr.sprintplanning.planning.model.LeaveEntry;
+import com.sprinklr.sprintplanning.planning.model.CapacityAllocationPercents;
 
 import java.time.Instant;
 import java.util.List;
@@ -17,6 +19,7 @@ public record PlanningCalculationInput(
     Map<String, Double> manualRolloverOverrides,
     Map<com.sprinklr.sprintplanning.common.enums.Domain, Double> computedRollover,
     List<IssueView> selectedIssues,
-    List<IssueView> committedIssues
+    List<IssueView> committedIssues,
+    List<CapacityAllocationPercents> capacityAllocation
 ) {
 }

@@ -131,6 +131,7 @@ public class IssueSearchServiceImpl implements IssueSearchService {
         release.getStartDate(),
         release.getCapacity(),
         release.getLeavePercent() != null ? release.getLeavePercent() : 0.0,
+        release.getCapacityAllocation(),
         issues);
   }
 

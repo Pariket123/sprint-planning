@@ -12,6 +12,7 @@ public record PlanningSummaryDto(
     double totalSelectedStoryPoints,
     int totalSelectedIssueCount,
     List<DomainPlanningMetricsDto> domainMetrics,
-    RiskLevel riskLevel
+    RiskLevel riskLevel,
+    CapacityAllocationTableDto capacityAllocationTable
 ) {
 }

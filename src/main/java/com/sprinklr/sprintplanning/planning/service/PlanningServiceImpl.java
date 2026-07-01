@@ -22,6 +22,7 @@ import com.sprinklr.sprintplanning.planning.mapper.PlanningMapper;
 import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
 import com.sprinklr.sprintplanning.planning.model.LeaveEntry;
 import com.sprinklr.sprintplanning.planning.model.OverrideAction;
+import com.sprinklr.sprintplanning.planning.model.CapacityAllocationPercents;
 import com.sprinklr.sprintplanning.planning.model.PlanningOverride;
 import com.sprinklr.sprintplanning.planning.model.RolloverIssue;
 import com.sprinklr.sprintplanning.planning.model.SprintPlanningDocument;
@@ -104,6 +105,16 @@ public class PlanningServiceImpl implements PlanningService {
   public SprintPlanningDocument updateOverrides(String podId, Long jiraSprintId, List<PlanningOverride> overrides) {
     SprintPlanningDocument document = getOrCreatePlanning(podId, jiraSprintId);
     document.setOverrides(overrides != null ? overrides : List.of());
+    return save(document);
+  }
+
+  @Override
+  public SprintPlanningDocument updateCapacityAllocation(
+      String podId,
+      Long jiraSprintId,
+      List<CapacityAllocationPercents> capacityAllocation) {
+    SprintPlanningDocument document = getOrCreatePlanning(podId, jiraSprintId);
+    document.setCapacityAllocation(capacityAllocation != null ? capacityAllocation : List.of());
     return save(document);
   }
 
@@ -294,6 +305,7 @@ public class PlanningServiceImpl implements PlanningService {
         planning.getCapacity(),
         planning.getLeaves(),
         planning.getOverrides(),
+        planning.getCapacityAllocation(),
         planning.getRolloverStoryPoints(),
         planningMapper.toResolvedRolloverMap(resolvedRollover),
         sprintIssues.size(),
@@ -302,7 +314,8 @@ public class PlanningServiceImpl implements PlanningService {
         nullSafeCopy(planning.getPlannedIssueKeys()),
         committedKeys,
         rolloverService.getRolloverRecords(podId, jiraSprintId),
-        summary.domainMetrics());
+        summary.domainMetrics(),
+        summary.capacityAllocationTable());
   }
 
   @Override
@@ -363,7 +376,8 @@ public class PlanningServiceImpl implements PlanningService {
         planning.getRolloverStoryPoints(),
         computedRollover,
         selectedIssues,
-        committedIssues);
+        committedIssues,
+        planning.getCapacityAllocation());
     return planningCalculator.calculateSummary(input);
   }
 

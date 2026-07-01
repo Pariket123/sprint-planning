@@ -56,6 +56,7 @@ class PlanningOperationsControllerTest {
         List.of(),
         List.of(),
         List.of(),
+        List.of(),
         Map.of(),
         Map.of(),
         0,
@@ -64,7 +65,8 @@ class PlanningOperationsControllerTest {
         List.of(),
         List.of(),
         List.of(),
-        List.of());
+        List.of(),
+        null);
     when(planningService.moveIssuesToSprint(eq("pod-1"), eq(10L), any(IssueMoveRequest.class)))
         .thenReturn(view);
 

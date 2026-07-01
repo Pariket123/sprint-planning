@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 
 import java.time.LocalDate;
 
-@Schema(description = "Create release request for a pod/module")
+@Schema(description = "Create release request for a team (pod context required)")
 public record CreateReleaseRequest(
     @NotBlank String name,
     String description,

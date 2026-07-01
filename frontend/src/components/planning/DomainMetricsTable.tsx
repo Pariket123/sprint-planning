@@ -23,7 +23,7 @@ export function DomainMetricsTable({ metrics }: DomainMetricsTableProps) {
             <th className="px-4 py-3 text-right font-medium text-gray-600">Rollover</th>
             <th className="px-4 py-3 text-right font-medium text-gray-600">Selected SP</th>
             <th className="px-4 py-3 text-right font-medium text-gray-600">Issues</th>
-            <th className="px-4 py-3 text-right font-medium text-gray-600">Suggested</th>
+            <th className="px-4 py-3 text-right font-medium text-gray-600">Roadmap cap.</th>
             <th className="px-4 py-3 text-right font-medium text-gray-600">Committed SP</th>
             <th className="px-4 py-3 text-right font-medium text-gray-600">Utilization</th>
             <th className="px-4 py-3 text-left font-medium text-gray-600">Risk</th>

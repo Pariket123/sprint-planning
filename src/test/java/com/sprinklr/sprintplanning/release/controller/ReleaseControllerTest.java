@@ -60,7 +60,7 @@ class ReleaseControllerTest {
                 """))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
-        .andExpect(jsonPath("$.data.podId").value("pod-1"));
+        .andExpect(jsonPath("$.data.teamId").value("team-1"));
 
     verify(releaseService).createRelease(eq("pod-1"), any());
   }
@@ -84,8 +84,8 @@ class ReleaseControllerTest {
   @Test
   void deactivateReleaseReturnsEnvelope() throws Exception {
     ReleaseResponse deactivated = new ReleaseResponse(
-        "release-1", "team-1", "pod-1", "Q3 2026", null,
-        "project = CARE", 20, null, List.of(), 0.0, false, Instant.now(), Instant.now());
+        "release-1", "team-1", "Q3 2026", null,
+        "project = CARE", 20, null, List.of(), 0.0, List.of(), false, Instant.now(), Instant.now());
     when(releaseService.deactivateRelease("pod-1", "release-1")).thenReturn(deactivated);
 
     mockMvc.perform(delete("/api/v1/pods/pod-1/releases/release-1"))
@@ -98,7 +98,6 @@ class ReleaseControllerTest {
     return new ReleaseResponse(
         "release-1",
         "team-1",
-        "pod-1",
         "Q3 2026",
         "Planning release for Q3",
         "project = CARE AND fixVersion = \"Q3 2026\"",
@@ -106,6 +105,7 @@ class ReleaseControllerTest {
         null,
         List.of(),
         0.0,
+        List.of(),
         true,
         Instant.now(),
         Instant.now());

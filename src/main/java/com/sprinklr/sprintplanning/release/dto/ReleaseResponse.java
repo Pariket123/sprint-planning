@@ -1,5 +1,6 @@
 package com.sprinklr.sprintplanning.release.dto;
 
+import com.sprinklr.sprintplanning.planning.model.CapacityAllocationPercents;
 import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -7,11 +8,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
-@Schema(description = "Release configuration for a pod/module")
+@Schema(description = "Team-scoped release configuration")
 public record ReleaseResponse(
     String id,
     String teamId,
-    String podId,
     String name,
     String description,
     String baseJql,
@@ -19,6 +19,7 @@ public record ReleaseResponse(
     LocalDate startDate,
     List<PersonCapacity> capacity,
     Double leavePercent,
+    List<CapacityAllocationPercents> capacityAllocation,
     boolean active,
     Instant createdAt,
     Instant updatedAt

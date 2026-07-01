@@ -7,6 +7,7 @@ import {
   getReleaseIssuesAnalytics,
   searchIssuesInRelease,
   updateReleaseCapacity,
+  updateReleaseCapacityAllocation,
 } from '../../api'
 import type {
   AnalyticsResponse,
@@ -18,6 +19,7 @@ import { JqlAutocompleteTextarea } from '../jira/JqlAutocompleteTextarea'
 import { PageErrorState, PageLoadingState } from '../common'
 import { ReleaseAnalysisPanel } from './ReleaseAnalysisPanel'
 import { ReleaseCapacityEditor } from './ReleaseCapacityEditor'
+import { CapacityAllocationEditor } from '../planning/CapacityAllocationEditor'
 import { DEFAULT_DEV_SUB_DOMAIN_ANALYSIS_PROFILE_KEY } from '../../config/devSubDomainAnalysisProfiles'
 import { DomainMetricsTable } from '../planning/DomainMetricsTable'
 import { IssueTable } from '../issues/IssueTable'
@@ -346,12 +348,34 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
           />
 
           <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="text-sm font-semibold text-gray-900">Capacity allocation</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Split available capacity between roadmap work and bug/support work by domain.
+            </p>
+            <div className="mt-4">
+              <CapacityAllocationEditor
+                table={capacityMetrics?.capacityAllocationTable}
+                initialPercents={releaseConfig.capacityAllocation ?? []}
+                onSave={async (capacityAllocation) => {
+                  const refreshed = await updateReleaseCapacityAllocation(
+                    podId,
+                    releaseConfig.id,
+                    { capacityAllocation },
+                  )
+                  setReleaseConfig(refreshed)
+                  await loadCapacityMetrics(appliedAdditionalJql)
+                }}
+              />
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-gray-900">Domain metrics</h2>
                 <p className="mt-1 text-sm text-gray-600">
-                  Committed story points are computed from release issues matching your current
-                  filters.
+                  BE, UI, AI, and QA utilization is measured against planned roadmap capacity for
+                  release issues matching your current filters.
                 </p>
               </div>
               {capacityMetrics && !capacityLoading && (

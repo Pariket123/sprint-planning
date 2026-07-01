@@ -136,7 +136,7 @@ export function ReleasesTab({ podId, onReleasesChange, onViewIssues }: ReleasesT
         <div>
           <h2 className="text-sm font-semibold text-gray-900">Releases</h2>
           <p className="mt-1 text-sm text-gray-600">
-            Create and manage release configurations for this pod.
+            Create and manage release configurations shared across your team.
           </p>
         </div>
         <button

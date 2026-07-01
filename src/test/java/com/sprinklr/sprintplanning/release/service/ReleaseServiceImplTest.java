@@ -45,7 +45,7 @@ class ReleaseServiceImplTest {
   }
 
   @Test
-  void createReleaseStoresBaseJql() {
+  void createReleaseStoresTeamScopedRelease() {
     when(teamService.getActivePodDocument("pod-1")).thenReturn(pod("pod-1", "team-1"));
     when(releaseConfigRepository.save(any())).thenAnswer(invocation -> {
       ReleaseConfigDocument saved = invocation.getArgument(0);
@@ -62,24 +62,23 @@ class ReleaseServiceImplTest {
 
     ReleaseResponse response = releaseService.createRelease("pod-1", request);
 
-    assertThat(response.podId()).isEqualTo("pod-1");
     assertThat(response.teamId()).isEqualTo("team-1");
     assertThat(response.baseJql()).isEqualTo("project = CARE AND fixVersion = \"Q3 2026\"");
     assertThat(response.durationDays()).isEqualTo(20);
 
     ArgumentCaptor<ReleaseConfigDocument> captor = ArgumentCaptor.forClass(ReleaseConfigDocument.class);
     verify(releaseConfigRepository).save(captor.capture());
+    assertThat(captor.getValue().getTeamId()).isEqualTo("team-1");
     assertThat(captor.getValue().getBaseJql())
         .isEqualTo("project = CARE AND fixVersion = \"Q3 2026\"");
-    assertThat(captor.getValue().getPodId()).isEqualTo("pod-1");
   }
 
   @Test
-  void listReleasesReturnsActiveReleasesForPod() {
+  void listReleasesReturnsActiveReleasesForTeam() {
     when(teamService.getActivePodDocument("pod-1")).thenReturn(pod("pod-1", "team-1"));
 
-    ReleaseConfigDocument release = activeRelease("release-1", "pod-1", "team-1", "Q3 2026");
-    when(releaseConfigRepository.findByPodIdAndActiveTrueOrderByNameAsc("pod-1"))
+    ReleaseConfigDocument release = activeRelease("release-1", "team-1", "Q3 2026");
+    when(releaseConfigRepository.findByTeamIdAndActiveTrueOrderByNameAsc("team-1"))
         .thenReturn(List.of(release));
 
     List<ReleaseResponse> releases = releaseService.listReleases("pod-1");
@@ -89,10 +88,24 @@ class ReleaseServiceImplTest {
   }
 
   @Test
+  void listReleasesFromAnotherPodInSameTeamReturnsSameReleases() {
+    when(teamService.getActivePodDocument("pod-2")).thenReturn(pod("pod-2", "team-1"));
+
+    ReleaseConfigDocument release = activeRelease("release-1", "team-1", "Q3 2026");
+    when(releaseConfigRepository.findByTeamIdAndActiveTrueOrderByNameAsc("team-1"))
+        .thenReturn(List.of(release));
+
+    List<ReleaseResponse> releases = releaseService.listReleases("pod-2");
+
+    assertThat(releases).hasSize(1);
+    assertThat(releases.get(0).teamId()).isEqualTo("team-1");
+  }
+
+  @Test
   void updateReleaseUpdatesBaseJql() {
-    ReleaseConfigDocument existing = activeRelease("release-1", "pod-1", "team-1", "Old Name");
+    ReleaseConfigDocument existing = activeRelease("release-1", "team-1", "Old Name");
     when(teamService.getActivePodDocument("pod-1")).thenReturn(pod("pod-1", "team-1"));
-    when(releaseConfigRepository.findByIdAndPodIdAndActiveTrue("release-1", "pod-1"))
+    when(releaseConfigRepository.findByIdAndTeamIdAndActiveTrue("release-1", "team-1"))
         .thenReturn(Optional.of(existing));
     when(releaseConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -111,9 +124,9 @@ class ReleaseServiceImplTest {
 
   @Test
   void deactivateReleaseSetsActiveFalse() {
-    ReleaseConfigDocument existing = activeRelease("release-1", "pod-1", "team-1", "Q3 2026");
+    ReleaseConfigDocument existing = activeRelease("release-1", "team-1", "Q3 2026");
     when(teamService.getActivePodDocument("pod-1")).thenReturn(pod("pod-1", "team-1"));
-    when(releaseConfigRepository.findByIdAndPodIdAndActiveTrue("release-1", "pod-1"))
+    when(releaseConfigRepository.findByIdAndTeamIdAndActiveTrue("release-1", "team-1"))
         .thenReturn(Optional.of(existing));
     when(releaseConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -124,9 +137,9 @@ class ReleaseServiceImplTest {
   }
 
   @Test
-  void getReleaseThrowsWhenNotFoundForPod() {
+  void getReleaseThrowsWhenNotFoundForTeam() {
     when(teamService.getActivePodDocument("pod-1")).thenReturn(pod("pod-1", "team-1"));
-    when(releaseConfigRepository.findByIdAndPodIdAndActiveTrue("missing", "pod-1"))
+    when(releaseConfigRepository.findByIdAndTeamIdAndActiveTrue("missing", "team-1"))
         .thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> releaseService.getRelease("pod-1", "missing"))
@@ -151,10 +164,9 @@ class ReleaseServiceImplTest {
     return pod;
   }
 
-  private ReleaseConfigDocument activeRelease(String id, String podId, String teamId, String name) {
+  private ReleaseConfigDocument activeRelease(String id, String teamId, String name) {
     ReleaseConfigDocument release = new ReleaseConfigDocument();
     release.setId(id);
-    release.setPodId(podId);
     release.setTeamId(teamId);
     release.setName(name);
     release.setBaseJql("project = SCRUM");

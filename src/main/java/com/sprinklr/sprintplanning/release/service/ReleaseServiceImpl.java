@@ -7,6 +7,7 @@ import com.sprinklr.sprintplanning.release.dto.ReleaseResponse;
 import com.sprinklr.sprintplanning.release.dto.UpdateReleaseCapacityRequest;
 import com.sprinklr.sprintplanning.release.dto.UpdateReleaseRequest;
 import com.sprinklr.sprintplanning.release.mapper.ReleaseMapper;
+import com.sprinklr.sprintplanning.planning.model.CapacityAllocationPercents;
 import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
 import com.sprinklr.sprintplanning.release.model.ReleaseConfigDocument;
 import com.sprinklr.sprintplanning.release.repository.ReleaseConfigRepository;
@@ -39,9 +40,9 @@ public class ReleaseServiceImpl implements ReleaseService {
 
   @Override
   public List<ReleaseResponse> listReleases(String podId) {
-    resolvePod(podId);
+    String teamId = resolveTeamId(podId);
     return releaseMapper.toReleaseResponses(
-        releaseConfigRepository.findByPodIdAndActiveTrueOrderByNameAsc(podId));
+        releaseConfigRepository.findByTeamIdAndActiveTrueOrderByNameAsc(teamId));
   }
 
   @Override
@@ -51,12 +52,11 @@ public class ReleaseServiceImpl implements ReleaseService {
 
   @Override
   public ReleaseResponse createRelease(String podId, CreateReleaseRequest request) {
-    PodDocument pod = resolvePod(podId);
+    String teamId = resolveTeamId(podId);
     Instant now = Instant.now();
 
     ReleaseConfigDocument document = new ReleaseConfigDocument();
-    document.setTeamId(pod.getTeamId());
-    document.setPodId(podId);
+    document.setTeamId(teamId);
     applyRequest(
         document,
         request.name(),
@@ -99,16 +99,34 @@ public class ReleaseServiceImpl implements ReleaseService {
     ReleaseConfigDocument document = getActiveReleaseDocument(podId, releaseId);
     document.setCapacity(copyCapacity(request.capacity()));
     document.setLeavePercent(normalizeLeavePercent(request.leavePercent()));
+    if (request.capacityAllocation() != null) {
+      document.setCapacityAllocation(copyCapacityAllocation(request.capacityAllocation()));
+    }
+    document.setUpdatedAt(Instant.now());
+    return releaseMapper.toReleaseResponse(save(document));
+  }
+
+  @Override
+  public ReleaseResponse updateCapacityAllocation(
+      String podId,
+      String releaseId,
+      List<CapacityAllocationPercents> capacityAllocation) {
+    ReleaseConfigDocument document = getActiveReleaseDocument(podId, releaseId);
+    document.setCapacityAllocation(copyCapacityAllocation(capacityAllocation));
     document.setUpdatedAt(Instant.now());
     return releaseMapper.toReleaseResponse(save(document));
   }
 
   @Override
   public ReleaseConfigDocument getActiveReleaseDocument(String podId, String releaseId) {
-    resolvePod(podId);
-    return releaseConfigRepository.findByIdAndPodIdAndActiveTrue(releaseId, podId)
+    String teamId = resolveTeamId(podId);
+    return releaseConfigRepository.findByIdAndTeamIdAndActiveTrue(releaseId, teamId)
         .orElseThrow(() -> new ResourceNotFoundException(
             "RELEASE_NOT_FOUND", "Release not found: " + releaseId));
+  }
+
+  private String resolveTeamId(String podId) {
+    return resolvePod(podId).getTeamId();
   }
 
   private PodDocument resolvePod(String podId) {
@@ -147,7 +165,7 @@ public class ReleaseServiceImpl implements ReleaseService {
     } catch (DuplicateKeyException ex) {
       throw new ApiException(
           "RELEASE_NAME_CONFLICT",
-          "Release name already exists for pod: " + document.getPodId(),
+          "Release name already exists for team: " + document.getTeamId(),
           HttpStatus.CONFLICT);
     }
   }
@@ -157,6 +175,14 @@ public class ReleaseServiceImpl implements ReleaseService {
       return new ArrayList<>();
     }
     return new ArrayList<>(capacity);
+  }
+
+  private List<CapacityAllocationPercents> copyCapacityAllocation(
+      List<CapacityAllocationPercents> capacityAllocation) {
+    if (capacityAllocation == null) {
+      return new ArrayList<>();
+    }
+    return new ArrayList<>(capacityAllocation);
   }
 
   private double normalizeLeavePercent(Double leavePercent) {

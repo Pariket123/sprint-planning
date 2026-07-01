@@ -2,6 +2,7 @@ import { apiClient } from './apiClient'
 import type {
   CreateReleaseRequest,
   ReleaseResponse,
+  UpdateCapacityAllocationRequest,
   UpdateReleaseCapacityRequest,
   UpdateReleaseRequest,
 } from './types'
@@ -42,4 +43,15 @@ export function updateReleaseCapacity(
   request: UpdateReleaseCapacityRequest,
 ): Promise<ReleaseResponse> {
   return apiClient.put<ReleaseResponse>(`/pods/${podId}/releases/${releaseId}/capacity`, request)
+}
+
+export function updateReleaseCapacityAllocation(
+  podId: string,
+  releaseId: string,
+  request: UpdateCapacityAllocationRequest,
+): Promise<ReleaseResponse> {
+  return apiClient.put<ReleaseResponse>(
+    `/pods/${podId}/releases/${releaseId}/capacity-allocation`,
+    request,
+  )
 }

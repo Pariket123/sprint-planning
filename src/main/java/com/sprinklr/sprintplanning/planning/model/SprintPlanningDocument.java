@@ -39,6 +39,8 @@ public class SprintPlanningDocument {
 
   private List<RolloverIssue> rolloverIssues = new ArrayList<>();
 
+  private List<CapacityAllocationPercents> capacityAllocation = new ArrayList<>();
+
   private Instant createdAt;
 
   private Instant updatedAt;
@@ -137,6 +139,14 @@ public class SprintPlanningDocument {
 
   public void setRolloverIssues(List<RolloverIssue> rolloverIssues) {
     this.rolloverIssues = rolloverIssues;
+  }
+
+  public List<CapacityAllocationPercents> getCapacityAllocation() {
+    return capacityAllocation;
+  }
+
+  public void setCapacityAllocation(List<CapacityAllocationPercents> capacityAllocation) {
+    this.capacityAllocation = capacityAllocation;
   }
 
   public Instant getCreatedAt() {

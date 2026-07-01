@@ -1,5 +1,6 @@
 package com.sprinklr.sprintplanning.release.service;
 
+import com.sprinklr.sprintplanning.planning.model.CapacityAllocationPercents;
 import com.sprinklr.sprintplanning.release.dto.CreateReleaseRequest;
 import com.sprinklr.sprintplanning.release.dto.ReleaseResponse;
 import com.sprinklr.sprintplanning.release.dto.UpdateReleaseCapacityRequest;
@@ -21,6 +22,9 @@ public interface ReleaseService {
   ReleaseResponse deactivateRelease(String podId, String releaseId);
 
   ReleaseResponse updateCapacity(String podId, String releaseId, UpdateReleaseCapacityRequest request);
+
+  ReleaseResponse updateCapacityAllocation(
+      String podId, String releaseId, List<CapacityAllocationPercents> capacityAllocation);
 
   ReleaseConfigDocument getActiveReleaseDocument(String podId, String releaseId);
 }

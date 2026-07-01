@@ -8,6 +8,8 @@ public class PersonCapacity {
   private Domain domain;
   private double bandwidthPercent;
 
+  private double velocity = 1.0;
+
   /** Legacy domain-wise rows stored in Mongo before person-wise capacity. */
   private Integer headcount;
 
@@ -33,6 +35,14 @@ public class PersonCapacity {
 
   public void setBandwidthPercent(double bandwidthPercent) {
     this.bandwidthPercent = bandwidthPercent;
+  }
+
+  public double getVelocity() {
+    return velocity > 0 ? velocity : 1.0;
+  }
+
+  public void setVelocity(double velocity) {
+    this.velocity = velocity;
   }
 
   public Integer getHeadcount() {

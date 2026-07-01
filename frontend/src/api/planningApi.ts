@@ -11,6 +11,7 @@ import type {
   RecordRolloverRequest,
   RolloverIssueDto,
   UpdateCapacityRequest,
+  UpdateCapacityAllocationRequest,
   UpdateLeavesRequest,
   UpdateOverridesRequest,
   UpdatePlannedScopeRequest,
@@ -84,6 +85,14 @@ export function updateOverrides(
   request: UpdateOverridesRequest,
 ): Promise<void> {
   return apiClient.put<void>(`${planningPath(podId, jiraSprintId)}/overrides`, request)
+}
+
+export function updateCapacityAllocation(
+  podId: string,
+  jiraSprintId: number,
+  request: UpdateCapacityAllocationRequest,
+): Promise<void> {
+  return apiClient.put<void>(`${planningPath(podId, jiraSprintId)}/capacity-allocation`, request)
 }
 
 export function validatePlanning(
