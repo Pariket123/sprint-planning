@@ -461,6 +461,66 @@ class JiraIssueMappingHelperTest {
     assertThat(helper.resolveStoryPoints(issue, config)).isEqualTo(15.0);
   }
 
+  @Test
+  void resolvesDomainLabelFromCompositeDomainField() throws Exception {
+    JiraFieldConfig config = new JiraFieldConfig(
+        "customfield_10016",
+        "customfield_10109",
+        "customfield_10020",
+        Map.of("BE", "Be", "UI", "Ui", "AI", "Ai"),
+        List.of("Bug"),
+        List.of("Story"),
+        Map.of("BE+UI", "Be+Ui"),
+        Map.of(),
+        null,
+        Map.of());
+
+    JiraIssueDto issue = readIssue("""
+        {
+          "key": "SCRUM-6",
+          "fields": {
+            "summary": "Analytics Service",
+            "issuetype": { "name": "Story" },
+            "status": {
+              "name": "To Do",
+              "statusCategory": { "key": "new" }
+            },
+            "customfield_10109": { "value": "Be+Ui" }
+          }
+        }
+        """);
+
+    assertThat(helper.resolveDomainLabel(issue, config)).isEqualTo("BE UI");
+  }
+
+  @Test
+  void resolvesDomainLabelFromSingleDomainField() throws Exception {
+    JiraIssueDto issue = readIssue("""
+        {
+          "key": "SCRUM-7",
+          "fields": {
+            "summary": "Backend task",
+            "issuetype": { "name": "Task" },
+            "status": {
+              "name": "To Do",
+              "statusCategory": { "key": "new" }
+            },
+            "customfield_10109": { "value": "Be" }
+          }
+        }
+        """);
+
+    JiraFieldConfig config = new JiraFieldConfig(
+        "customfield_10016",
+        "customfield_10109",
+        "customfield_10020",
+        Map.of("BE", "Be", "UI", "Ui", "AI", "Ai"),
+        List.of("Bug"),
+        List.of("Story"));
+
+    assertThat(helper.resolveDomainLabel(issue, config)).isEqualTo("BE");
+  }
+
   private JiraIssueDto readIssue(String json) throws Exception {
     return objectMapper.readValue(json, JiraIssueDto.class);
   }

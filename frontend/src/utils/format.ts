@@ -21,6 +21,19 @@ export function formatDomain(domain: Domain | string | null | undefined): string
   return domain
 }
 
+export function formatIssueDomain(
+  domain: Domain | string | null | undefined,
+  domainLabel?: string | null,
+): string {
+  if (domainLabel && domainLabel.trim().length > 0) {
+    return domainLabel
+  }
+  if (!domain || domain === 'UNKNOWN') {
+    return 'Unmapped'
+  }
+  return String(domain)
+}
+
 export function formatStoryPoints(value: number | null | undefined): string {
   if (value === null || value === undefined) {
     return '-'

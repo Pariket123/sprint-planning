@@ -20,6 +20,7 @@ public class RolloverMapper {
         issue.getStatusAtRollover(),
         issue.getStoryPointsAtRollover(),
         issue.getDomain(),
+        issue.getDomainLabel(),
         issue.getRolledOverAt(),
         issue.getRolledOverBy(),
         issue.getNotes());

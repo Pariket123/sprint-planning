@@ -65,7 +65,7 @@ class JiraClientImplTest {
     page.setIssues(List.of(issue));
 
     TicketViewDto ticket = new TicketViewDto(
-        "WFM-1", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        "WFM-1", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
     when(jiraRestClient.searchIssues(eq("project = WFM"), anyList(), eq(0), eq(50))).thenReturn(page);
     when(jiraTicketMapper.toTicketViews(List.of(issue), fieldConfig)).thenReturn(List.of(ticket));
@@ -84,7 +84,7 @@ class JiraClientImplTest {
     JiraIssueDto issue = new JiraIssueDto();
     issue.setKey("CARE-105613");
     TicketViewDto ticket = new TicketViewDto(
-        "CARE-105613", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        "CARE-105613", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
     when(jiraRestClient.getIssuesByKeys(eq(List.of("CARE-105613", "CARE-105614")), anyList()))
         .thenReturn(List.of(issue));
@@ -105,7 +105,7 @@ class JiraClientImplTest {
     JiraIssueDto issue = new JiraIssueDto();
     issue.setKey("CARE-105613");
     TicketViewDto ticket = new TicketViewDto(
-        "CARE-105613", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        "CARE-105613", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
     when(jiraRestClient.getIssuesByKeys(eq(List.of("CARE-105613")), anyList()))
         .thenReturn(List.of(issue));

@@ -436,6 +436,6 @@ class PlanningServiceImplTest {
   private static TicketViewDto ticket(String key, List<Long> sprintIds, Domain domain, double storyPoints) {
     return new TicketViewDto(
         key, "Summary", "Story", "In Progress", StatusCategory.IN_PROGRESS,
-        storyPoints, domain, List.of(), null, null, "High", List.of(), sprintIds, List.of(), List.of());
+        storyPoints, domain, null, List.of(), null, null, "High", List.of(), sprintIds, List.of(), List.of());
   }
 }

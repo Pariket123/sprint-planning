@@ -267,7 +267,9 @@ public class PlanningServiceImpl implements PlanningService {
         ticket.issueType(),
         ticket.status(),
         ticket.statusCategory(),
-        ticket.domainAllocations() != null ? ticket.domainAllocations() : List.of());
+        ticket.domainAllocations() != null ? ticket.domainAllocations() : List.of(),
+        List.of(),
+        ticket.domainLabel());
   }
 
   @Override
@@ -486,6 +488,7 @@ public class PlanningServiceImpl implements PlanningService {
         ticket.statusCategory(),
         ticket.storyPoints(),
         ticket.domain(),
+        ticket.domainLabel(),
         plannedSprintId,
         currentSprintId,
         rolledOver);

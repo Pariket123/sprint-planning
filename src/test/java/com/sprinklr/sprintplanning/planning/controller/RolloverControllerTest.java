@@ -78,7 +78,7 @@ class RolloverControllerTest {
 
   private RolloverIssueDto rolloverIssue() {
     return new RolloverIssueDto(
-        "CARE-105613", 12L, 13L, "In Progress", 2.0, Domain.DEV,
+        "CARE-105613", 12L, 13L, "In Progress", 2.0, Domain.DEV, null,
         Instant.now(), null, "Incomplete");
   }
 }

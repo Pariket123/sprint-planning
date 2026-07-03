@@ -13,6 +13,7 @@ public record PlannedIssueViewDto(
     StatusCategory statusCategory,
     Double storyPoints,
     Domain domain,
+    String domainLabel,
     Long plannedSprintId,
     Long currentSprintId,
     boolean rolledOver

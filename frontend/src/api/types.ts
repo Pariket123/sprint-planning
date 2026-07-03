@@ -142,6 +142,7 @@ export interface TicketViewDto {
   statusCategory: StatusCategory
   storyPoints: number | null
   domain: Domain
+  domainLabel?: string | null
   domainAllocations?: DomainAllocation[] | null
   assigneeId: string | null
   assigneeDisplayName: string | null
@@ -268,6 +269,7 @@ export interface IssueView {
   key: string
   summary: string
   domain: Domain
+  domainLabel?: string | null
   storyPoints: number | null
   issueType: string
   status: string
@@ -323,6 +325,7 @@ export interface RolloverIssueDto {
   statusAtRollover: string
   storyPointsAtRollover: number | null
   domain: Domain
+  domainLabel?: string | null
   rolledOverAt: string
   rolledOverBy: string
   notes: string | null
@@ -430,6 +433,7 @@ export interface PlannedIssueViewDto {
   statusCategory: StatusCategory
   storyPoints: number | null
   domain: Domain
+  domainLabel?: string | null
   plannedSprintId: number
   currentSprintId: number | null
   rolledOver: boolean

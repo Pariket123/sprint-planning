@@ -209,6 +209,42 @@ public class JiraIssueMappingHelper {
     return domains.isEmpty() ? Domain.UNKNOWN : domains.getFirst();
   }
 
+  @Named("resolveDomainLabel")
+  public String resolveDomainLabel(JiraIssueDto issue, @Context JiraFieldConfig config) {
+    if (config == null || config.domainFieldId() == null) {
+      Domain domain = resolveDomain(issue, config);
+      return domain == Domain.UNKNOWN ? null : domain.name();
+    }
+    JsonNode fields = issue.getFields();
+    if (fields == null) {
+      return null;
+    }
+    String jiraValue = extractFieldValue(fields.path(config.domainFieldId()));
+    return formatDomainLabel(jiraValue, config);
+  }
+
+  String formatDomainLabel(String jiraValue, JiraFieldConfig config) {
+    if (jiraValue == null || jiraValue.isBlank()) {
+      return null;
+    }
+
+    if (jiraValue.contains("+")) {
+      List<String> labels = new ArrayList<>();
+      for (String token : jiraValue.split("\\+")) {
+        mapTokenToDomainKey(token.trim(), config).ifPresent(labels::add);
+      }
+      if (!labels.isEmpty()) {
+        return String.join(" ", labels);
+      }
+    }
+
+    return mapTokenToDomainKey(jiraValue.trim(), config).orElse(jiraValue.trim());
+  }
+
+  private Optional<String> mapTokenToDomainKey(String token, JiraFieldConfig config) {
+    return mapTokenToDomain(token, config).map(Domain::name);
+  }
+
   List<Domain> parseDomainsFromSelect(String jiraValue, JiraFieldConfig config) {
     if (jiraValue == null || jiraValue.isBlank() || config == null) {
       return List.of(Domain.UNKNOWN);

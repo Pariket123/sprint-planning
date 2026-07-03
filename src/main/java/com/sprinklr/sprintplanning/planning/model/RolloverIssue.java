@@ -18,6 +18,8 @@ public class RolloverIssue {
 
   private Domain domain;
 
+  private String domainLabel;
+
   private Instant rolledOverAt;
 
   private String rolledOverBy;
@@ -70,6 +72,14 @@ public class RolloverIssue {
 
   public void setDomain(Domain domain) {
     this.domain = domain;
+  }
+
+  public String getDomainLabel() {
+    return domainLabel;
+  }
+
+  public void setDomainLabel(String domainLabel) {
+    this.domainLabel = domainLabel;
   }
 
   public Instant getRolledOverAt() {

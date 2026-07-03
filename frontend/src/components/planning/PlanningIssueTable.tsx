@@ -1,5 +1,5 @@
 import type { IssueView } from '../../api/types'
-import { formatDomain, formatStoryPoints } from '../../utils/format'
+import { formatIssueDomain, formatStoryPoints } from '../../utils/format'
 import { StatusCategoryBadge } from '../common/StatusCategoryBadge'
 
 interface PlanningIssueTableProps {
@@ -90,7 +90,9 @@ export function PlanningIssueTable({
                 <td className="px-4 py-3 text-right text-gray-700">
                   {formatStoryPoints(issue.storyPoints)}
                 </td>
-                <td className="px-4 py-3 text-gray-700">{formatDomain(issue.domain)}</td>
+                <td className="px-4 py-3 text-gray-700">
+                  {formatIssueDomain(issue.domain, issue.domainLabel)}
+                </td>
               </tr>
             ))}
           </tbody>

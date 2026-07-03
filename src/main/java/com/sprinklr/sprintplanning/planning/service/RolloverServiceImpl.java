@@ -1,6 +1,8 @@
 package com.sprinklr.sprintplanning.planning.service;
 
 import com.sprinklr.sprintplanning.client.jira.JiraClient;
+import com.sprinklr.sprintplanning.common.exception.ApiException;
+import com.sprinklr.sprintplanning.common.exception.ResourceNotFoundException;
 import com.sprinklr.sprintplanning.common.model.JiraFieldConfig;
 import com.sprinklr.sprintplanning.common.util.StringListNormalizer;
 import com.sprinklr.sprintplanning.planning.dto.RecordRolloverRequest;
@@ -13,6 +15,7 @@ import com.sprinklr.sprintplanning.search.dto.TicketViewDto;
 import com.sprinklr.sprintplanning.team.mapper.JiraConfigMapper;
 import com.sprinklr.sprintplanning.team.model.PodDocument;
 import com.sprinklr.sprintplanning.team.service.TeamService;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -55,9 +58,24 @@ public class RolloverServiceImpl implements RolloverService {
     PodDocument pod = teamService.getActivePodDocument(podId);
     JiraFieldConfig fieldConfig = jiraConfigMapper.toJiraFieldConfig(pod.getJiraConfig());
     String issueKey = StringListNormalizer.normalize(List.of(request.issueKey())).getFirst();
+    if (request.toSprintId().equals(fromSprintId)) {
+      throw new ApiException(
+          "VALIDATION_ERROR",
+          "Destination sprint must be different from the source sprint",
+          HttpStatus.BAD_REQUEST);
+    }
 
     List<TicketViewDto> tickets = jiraClient.getIssuesByKeys(List.of(issueKey), fieldConfig);
     TicketViewDto ticket = tickets.isEmpty() ? null : tickets.getFirst();
+    if (ticket == null) {
+      throw new ResourceNotFoundException("ISSUE_NOT_FOUND", "Issue not found: " + issueKey);
+    }
+    if (!isIssueInSprint(ticket, fromSprintId)) {
+      throw new ApiException(
+          "VALIDATION_ERROR",
+          "Issue must be in the source sprint to record an outgoing rollover: " + issueKey,
+          HttpStatus.BAD_REQUEST);
+    }
 
     if (request.shouldMoveInJira()) {
       jiraClient.moveIssuesToSprint(List.of(issueKey), request.toSprintId());
@@ -106,6 +124,13 @@ public class RolloverServiceImpl implements RolloverService {
         .toList();
   }
 
+  private boolean isIssueInSprint(TicketViewDto ticket, Long sprintId) {
+    if (ticket.sprintIds() == null || ticket.sprintIds().isEmpty()) {
+      return false;
+    }
+    return ticket.sprintIds().contains(sprintId);
+  }
+
   private RolloverIssue buildRolloverIssue(
       String issueKey,
       Long fromSprintId,
@@ -119,6 +144,7 @@ public class RolloverServiceImpl implements RolloverService {
     rolloverIssue.setStatusAtRollover(ticket != null ? ticket.status() : null);
     rolloverIssue.setStoryPointsAtRollover(ticket != null ? ticket.storyPoints() : null);
     rolloverIssue.setDomain(ticket != null ? ticket.domain() : null);
+    rolloverIssue.setDomainLabel(ticket != null ? ticket.domainLabel() : null);
     rolloverIssue.setRolledOverAt(Instant.now());
     rolloverIssue.setRolledOverBy(resolveCurrentUserId());
     rolloverIssue.setNotes(notes != null ? notes.trim() : null);

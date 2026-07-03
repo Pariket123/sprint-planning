@@ -3,6 +3,7 @@ package com.sprinklr.sprintplanning.planning.service;
 import com.sprinklr.sprintplanning.client.jira.JiraClient;
 import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.enums.StatusCategory;
+import com.sprinklr.sprintplanning.common.exception.ApiException;
 import com.sprinklr.sprintplanning.common.exception.JiraClientException;
 import com.sprinklr.sprintplanning.common.model.JiraFieldConfig;
 import com.sprinklr.sprintplanning.planning.dto.RecordRolloverRequest;
@@ -64,7 +65,7 @@ class RolloverServiceImplTest {
     when(teamService.getActivePodDocument("pod-1")).thenReturn(pod());
     when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig());
     when(jiraClient.getIssuesByKeys(eq(List.of("CARE-105613")), any()))
-        .thenReturn(List.of(ticket("CARE-105613", 2.0, Domain.DEV)));
+        .thenReturn(List.of(ticket("CARE-105613", 2.0, Domain.DEV, 12L)));
 
     SprintPlanningDocument fromPlanning = planningDoc("pod-1", 12L);
     when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 12L))
@@ -91,7 +92,7 @@ class RolloverServiceImplTest {
     when(teamService.getActivePodDocument("pod-1")).thenReturn(pod());
     when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig());
     when(jiraClient.getIssuesByKeys(eq(List.of("CARE-105613")), any()))
-        .thenReturn(List.of(ticket("CARE-105613", 2.0, Domain.DEV)));
+        .thenReturn(List.of(ticket("CARE-105613", 2.0, Domain.DEV, 12L)));
 
     SprintPlanningDocument fromPlanning = planningDoc("pod-1", 12L);
     SprintPlanningDocument toPlanning = planningDoc("pod-1", 13L);
@@ -114,7 +115,7 @@ class RolloverServiceImplTest {
     when(teamService.getActivePodDocument("pod-1")).thenReturn(pod());
     when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig());
     when(jiraClient.getIssuesByKeys(eq(List.of("CARE-105613")), any()))
-        .thenReturn(List.of(ticket("CARE-105613", 2.0, Domain.DEV)));
+        .thenReturn(List.of(ticket("CARE-105613", 2.0, Domain.DEV, 12L)));
 
     doThrow(JiraClientException.badRequest("move failed"))
         .when(jiraClient).moveIssuesToSprint(any(), eq(13L));
@@ -122,6 +123,21 @@ class RolloverServiceImplTest {
     assertThatThrownBy(() -> rolloverService.recordRollover(
         "pod-1", 12L, new RecordRolloverRequest("CARE-105613", 13L, null, true)))
         .isInstanceOf(JiraClientException.class);
+
+    verify(sprintPlanningRepository, never()).save(any());
+  }
+
+  @Test
+  void recordRolloverRejectsIssueNotInSourceSprint() {
+    when(teamService.getActivePodDocument("pod-1")).thenReturn(pod());
+    when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig());
+    when(jiraClient.getIssuesByKeys(eq(List.of("CARE-105613")), any()))
+        .thenReturn(List.of(ticket("CARE-105613", 2.0, Domain.DEV, 99L)));
+
+    assertThatThrownBy(() -> rolloverService.recordRollover(
+        "pod-1", 12L, new RecordRolloverRequest("CARE-105613", 13L, null, false)))
+        .isInstanceOf(ApiException.class)
+        .hasMessageContaining("source sprint");
 
     verify(sprintPlanningRepository, never()).save(any());
   }
@@ -185,9 +201,9 @@ class RolloverServiceImplTest {
     return document;
   }
 
-  private TicketViewDto ticket(String key, double storyPoints, Domain domain) {
+  private TicketViewDto ticket(String key, double storyPoints, Domain domain, Long sprintId) {
     return new TicketViewDto(
         key, "Summary", "Story", "In Progress", StatusCategory.IN_PROGRESS,
-        storyPoints, domain, List.of(), null, null, "High", List.of(), List.of(), List.of(), List.of());
+        storyPoints, domain, null, List.of(), null, null, "High", List.of(), List.of(sprintId), List.of(), List.of());
   }
 }

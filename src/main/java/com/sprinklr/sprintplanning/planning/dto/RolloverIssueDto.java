@@ -13,6 +13,7 @@ public record RolloverIssueDto(
     String statusAtRollover,
     Double storyPointsAtRollover,
     Domain domain,
+    String domainLabel,
     Instant rolledOverAt,
     String rolledOverBy,
     String notes

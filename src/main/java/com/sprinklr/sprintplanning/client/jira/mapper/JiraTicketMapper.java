@@ -19,6 +19,7 @@ public interface JiraTicketMapper {
   @Mapping(target = "statusCategory", source = ".", qualifiedByName = "resolveStatusCategory")
   @Mapping(target = "storyPoints", source = ".", qualifiedByName = "resolveStoryPoints")
   @Mapping(target = "domain", source = ".", qualifiedByName = "resolveDomain")
+  @Mapping(target = "domainLabel", source = ".", qualifiedByName = "resolveDomainLabel")
   @Mapping(target = "domainAllocations", source = ".", qualifiedByName = "resolveDomainAllocations")
   @Mapping(target = "assigneeId", source = ".", qualifiedByName = "resolveAssigneeId")
   @Mapping(target = "assigneeDisplayName", source = ".", qualifiedByName = "resolveAssigneeDisplayName")

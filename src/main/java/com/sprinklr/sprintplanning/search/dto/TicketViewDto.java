@@ -16,6 +16,7 @@ public record TicketViewDto(
     StatusCategory statusCategory,
     Double storyPoints,
     Domain domain,
+    String domainLabel,
     List<DomainAllocation> domainAllocations,
     String assigneeId,
     String assigneeDisplayName,
