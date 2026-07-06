@@ -171,7 +171,7 @@ public class TeamPodSeedRunner implements ApplicationRunner {
         currentMappings::getDomainCompletionField,
         currentMappings::setDomainCompletionField,
         seedMappings.getDomainCompletionField());
-    changed |= updateIfDifferent(
+    changed |= syncOptionalField(
         currentMappings::getFixVersion,
         currentMappings::setFixVersion,
         seedMappings.getFixVersion());
@@ -207,6 +207,25 @@ public class TeamPodSeedRunner implements ApplicationRunner {
       Consumer<String> setter,
       String seedValue) {
     if (seedValue == null || seedValue.isBlank() || seedValue.equals(getter.get())) {
+      return false;
+    }
+    setter.accept(seedValue);
+    return true;
+  }
+
+  private boolean syncOptionalField(
+      Supplier<String> getter,
+      Consumer<String> setter,
+      String seedValue) {
+    String current = getter.get();
+    if (seedValue == null || seedValue.isBlank()) {
+      if (current != null && !current.isBlank()) {
+        setter.accept(null);
+        return true;
+      }
+      return false;
+    }
+    if (seedValue.equals(current)) {
       return false;
     }
     setter.accept(seedValue);

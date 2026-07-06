@@ -232,17 +232,36 @@ export function buildLocalJqlSuggestions(
   return []
 }
 
-export function formatJqlSuggestionValue(value: string, kind: JqlSuggestionKind): string {
-  if (kind === 'operator') {
-    return value
-  }
-  if (kind === 'keyword' || kind === 'function') {
-    return value
-  }
-  if (/\s/.test(value)) {
-    return `"${value.replace(/"/g, '\\"')}"`
+function stripOuterJqlQuotes(value: string): string {
+  const trimmed = value.trim()
+  if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed
+      .slice(1, -1)
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\')
   }
   return value
+}
+
+function quoteJqlString(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+}
+
+export function formatJqlSuggestionValue(value: string, kind: JqlSuggestionKind): string {
+  if (kind === 'operator' || kind === 'keyword' || kind === 'function') {
+    return value
+  }
+
+  const trimmed = value.trim()
+  if (kind === 'value' && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed
+  }
+
+  const unquoted = stripOuterJqlQuotes(value)
+  if (/\s/.test(unquoted)) {
+    return quoteJqlString(unquoted)
+  }
+  return unquoted
 }
 
 export function applyJqlSuggestion(

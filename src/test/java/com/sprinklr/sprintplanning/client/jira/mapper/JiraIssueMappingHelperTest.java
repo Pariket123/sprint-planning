@@ -197,7 +197,41 @@ class JiraIssueMappingHelperTest {
   }
 
   @Test
-  void resolvesCustomFixVersionFieldWhenConfigured() throws Exception {
+  void prefersBuiltInFixVersionsOverCustomField() throws Exception {
+    JiraFieldConfig configWithFixVersion = new JiraFieldConfig(
+        "customfield_10016",
+        "customfield_10109",
+        "customfield_10020",
+        Map.of("DEV", "Dev"),
+        List.of("Bug"),
+        List.of("Story"),
+        Map.of(),
+        Map.of(),
+        null,
+        Map.of(),
+        "customfield_10183");
+
+    JiraIssueDto issue = readIssue("""
+        {
+          "key": "SCRUM-7",
+          "fields": {
+            "summary": "Release scoped",
+            "issuetype": { "name": "Story" },
+            "status": {
+              "name": "To Do",
+              "statusCategory": { "key": "new" }
+            },
+            "fixVersions": [{ "name": "Q32026" }],
+            "customfield_10183": "Legacy custom value"
+          }
+        }
+        """);
+
+    assertThat(helper.resolveFixVersions(issue, configWithFixVersion)).containsExactly("Q32026");
+  }
+
+  @Test
+  void fallsBackToCustomFixVersionFieldWhenBuiltInIsEmpty() throws Exception {
     JiraFieldConfig configWithFixVersion = new JiraFieldConfig(
         "customfield_10016",
         "customfield_10109",

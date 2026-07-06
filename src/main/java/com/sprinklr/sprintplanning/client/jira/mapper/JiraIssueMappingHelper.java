@@ -412,6 +412,11 @@ public class JiraIssueMappingHelper {
 
   @Named("resolveFixVersions")
   public List<String> resolveFixVersions(JiraIssueDto issue, @Context JiraFieldConfig config) {
+    List<String> builtInVersions = readBuiltInFixVersions(issue);
+    if (!builtInVersions.isEmpty()) {
+      return builtInVersions;
+    }
+
     if (config != null && config.fixVersionFieldId() != null && !config.fixVersionFieldId().isBlank()) {
       String customFixVersion = textOrNull(fieldsOrNull(issue).path(config.fixVersionFieldId()));
       if (customFixVersion == null || customFixVersion.isBlank()) {
@@ -420,6 +425,10 @@ public class JiraIssueMappingHelper {
       return List.of(customFixVersion.trim());
     }
 
+    return List.of();
+  }
+
+  private List<String> readBuiltInFixVersions(JiraIssueDto issue) {
     JsonNode fixVersions = fieldsOrNull(issue).path("fixVersions");
     if (!fixVersions.isArray()) {
       return List.of();

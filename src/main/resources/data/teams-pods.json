@@ -40,8 +40,7 @@
                 "BE": "Be",
                 "UI": "Ui",
                 "AI": "Ai"
-              },
-              "fixVersion": "customfield_10183"
+              }
             },
             "issueTypeMappings": {
               "bugs": ["Bug", "Defect"],
@@ -157,8 +156,7 @@
                 "BE": "Be",
                 "UI": "Ui",
                 "AI": "Ai"
-              },
-              "fixVersion": "customfield_10183"
+              }
             },
             "issueTypeMappings": {
               "bugs": ["Bug", "Defect"],
@@ -274,8 +272,7 @@
                 "BE": "Be",
                 "UI": "Ui",
                 "AI": "Ai"
-              },
-              "fixVersion": "customfield_10183"
+              }
             },
             "issueTypeMappings": {
               "bugs": ["Bug", "Defect"],

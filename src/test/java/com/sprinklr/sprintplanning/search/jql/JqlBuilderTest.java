@@ -42,8 +42,8 @@ class JqlBuilderTest {
   }
 
   @Test
-  void buildsCustomFixVersionClausesWhenConfigured() {
-    JiraFieldConfig configWithFixVersion = new JiraFieldConfig(
+  void buildsFixVersionInClausesEvenWhenCustomFieldWasConfigured() {
+    JiraFieldConfig configWithLegacyCustomFixVersion = new JiraFieldConfig(
         "customfield_10016",
         "customfield_10109",
         "customfield_10020",
@@ -61,11 +61,11 @@ class JqlBuilderTest {
         List.of("Q3 2026"), List.of("Deprecated"),
         null, null, null, null, null, null);
 
-    Optional<String> jql = jqlBuilder.build(List.of("WFM"), filters, configWithFixVersion);
+    Optional<String> jql = jqlBuilder.build(List.of("WFM"), filters, configWithLegacyCustomFixVersion);
 
     assertThat(jql).isPresent();
-    assertThat(jql.get()).contains("cf[10183] IN (\"Q3 2026\")");
-    assertThat(jql.get()).contains("cf[10183] NOT IN (\"Deprecated\")");
+    assertThat(jql.get()).contains("fixVersion IN (\"Q3 2026\")");
+    assertThat(jql.get()).contains("fixVersion NOT IN (\"Deprecated\")");
     assertThat(jql.get()).contains("sprint IN (12, 13)");
   }
 

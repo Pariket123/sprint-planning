@@ -130,7 +130,7 @@ export function ReleaseForm({ podId, initial, submitLabel, onSubmit, onCancel }:
           value={form.baseJql}
           onChange={(baseJql) => update('baseJql', baseJql)}
           rows={4}
-          placeholder='project = SCRUM AND cf[10183] = "Q3"'
+          placeholder='project = SCRUM AND fixVersion IN ("Q3 2026")'
           className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-sm text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
           required
         />
