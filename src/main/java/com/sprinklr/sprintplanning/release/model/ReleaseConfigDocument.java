@@ -14,6 +14,7 @@ import java.util.List;
 
 @Document(collection = "release_configs")
 @CompoundIndex(name = "team_name_idx", def = "{'teamId': 1, 'name': 1}", unique = true)
+@CompoundIndex(name = "team_active_name_idx", def = "{'teamId': 1, 'active': 1, 'name': 1}")
 public class ReleaseConfigDocument {
 
   @Id

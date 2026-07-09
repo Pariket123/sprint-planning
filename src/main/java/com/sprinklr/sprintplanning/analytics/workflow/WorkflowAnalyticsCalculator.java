@@ -22,6 +22,10 @@ import java.util.Optional;
 @Component
 public class WorkflowAnalyticsCalculator {
 
+  public record Result(
+      WorkflowStageDistributionDto stageDistribution,
+      DevSubDomainMetricsDto devSubDomainMetrics) {}
+
   private static final List<Domain> DEV_SUB_DOMAIN_ORDER =
       List.of(Domain.BE, Domain.UI, Domain.AI);
 
@@ -31,10 +35,26 @@ public class WorkflowAnalyticsCalculator {
     this.sectionResolver = sectionResolver;
   }
 
+  public Result calculate(List<IssueView> issues, JiraFieldConfig fieldConfig) {
+    WorkflowAnalysisConfig config = workflowConfig(fieldConfig);
+    Map<String, String> statusToSectionKey = sectionResolver.buildStatusToSectionKeyMap(config);
+    return new Result(
+        calculateStageDistribution(issues, config, statusToSectionKey),
+        calculateDevSubDomainMetrics(issues, config, statusToSectionKey));
+  }
+
   public WorkflowStageDistributionDto calculateStageDistribution(
       List<IssueView> issues,
       JiraFieldConfig fieldConfig) {
     WorkflowAnalysisConfig config = workflowConfig(fieldConfig);
+    Map<String, String> statusToSectionKey = sectionResolver.buildStatusToSectionKeyMap(config);
+    return calculateStageDistribution(issues, config, statusToSectionKey);
+  }
+
+  private WorkflowStageDistributionDto calculateStageDistribution(
+      List<IssueView> issues,
+      WorkflowAnalysisConfig config,
+      Map<String, String> statusToSectionKey) {
     if (config == null || !config.isConfigured()) {
       return null;
     }
@@ -44,7 +64,7 @@ public class WorkflowAnalyticsCalculator {
     int unknownCount = 0;
 
     for (IssueView issue : issues) {
-      Optional<String> sectionKey = sectionResolver.resolveSectionKey(issue.status(), config);
+      Optional<String> sectionKey = sectionResolver.resolveSectionKey(issue.status(), statusToSectionKey);
       if (sectionKey.isPresent()) {
         counts.merge(sectionKey.get(), 1, Integer::sum);
       } else {
@@ -79,18 +99,26 @@ public class WorkflowAnalyticsCalculator {
       List<IssueView> issues,
       JiraFieldConfig fieldConfig) {
     WorkflowAnalysisConfig config = workflowConfig(fieldConfig);
+    Map<String, String> statusToSectionKey = sectionResolver.buildStatusToSectionKeyMap(config);
+    return calculateDevSubDomainMetrics(issues, config, statusToSectionKey);
+  }
+
+  private DevSubDomainMetricsDto calculateDevSubDomainMetrics(
+      List<IssueView> issues,
+      WorkflowAnalysisConfig config,
+      Map<String, String> statusToSectionKey) {
     if (config == null || config.devSubDomain() == null) {
       return null;
     }
 
     DevSubDomainConfig subDomainConfig = config.devSubDomain();
     List<IssueView> subDomainPool = issues.stream()
-        .filter(issue -> isInSubDomainPool(issue, config))
+        .filter(issue -> isInSubDomainPool(issue, statusToSectionKey, subDomainConfig))
         .toList();
 
     List<DevSubDomainItemDto> items = new ArrayList<>();
     for (Domain domain : DEV_SUB_DOMAIN_ORDER) {
-      items.add(calculateSubDomainItem(subDomainPool, domain, subDomainConfig, config));
+      items.add(calculateSubDomainItem(subDomainPool, domain, subDomainConfig, statusToSectionKey));
     }
 
     return new DevSubDomainMetricsDto(subDomainPool.size(), items.stream()
@@ -102,7 +130,7 @@ public class WorkflowAnalyticsCalculator {
       List<IssueView> subDomainPool,
       Domain domain,
       DevSubDomainConfig subDomainConfig,
-      WorkflowAnalysisConfig workflowConfig) {
+      Map<String, String> statusToSectionKey) {
     int applicableIssueCount = 0;
     int completedIssueCount = 0;
     double totalStoryPoints = 0;
@@ -115,7 +143,7 @@ public class WorkflowAnalyticsCalculator {
       }
       applicableIssueCount++;
       totalStoryPoints += allocation.storyPoints();
-      if (isSubDomainCompleted(issue, allocation, subDomainConfig, workflowConfig)) {
+      if (isSubDomainCompleted(issue, allocation, subDomainConfig, statusToSectionKey)) {
         completedIssueCount++;
         completedStoryPoints += allocation.storyPoints();
       }
@@ -135,21 +163,20 @@ public class WorkflowAnalyticsCalculator {
       IssueView issue,
       DomainAllocation allocation,
       DevSubDomainConfig subDomainConfig,
-      WorkflowAnalysisConfig workflowConfig) {
+      Map<String, String> statusToSectionKey) {
     if (allocation.completed()) {
       return true;
     }
-    return sectionResolver.resolveSectionKey(issue.status(), workflowConfig)
+    return sectionResolver.resolveSectionKey(issue.status(), statusToSectionKey)
         .map(subDomainConfig::autoCompletesInSection)
         .orElse(false);
   }
 
-  private boolean isInSubDomainPool(IssueView issue, WorkflowAnalysisConfig config) {
-    DevSubDomainConfig subDomainConfig = config.devSubDomain();
-    if (subDomainConfig == null) {
-      return false;
-    }
-    return sectionResolver.resolveSectionKey(issue.status(), config)
+  private boolean isInSubDomainPool(
+      IssueView issue,
+      Map<String, String> statusToSectionKey,
+      DevSubDomainConfig subDomainConfig) {
+    return sectionResolver.resolveSectionKey(issue.status(), statusToSectionKey)
         .map(subDomainConfig::hasSubDomainPoolSection)
         .orElse(false);
   }

@@ -88,6 +88,9 @@ public class AnalyticsCalculator {
         ? issueTypeBreakdownIssues
         : issues;
 
+    WorkflowAnalyticsCalculator.Result workflowAnalytics =
+        workflowAnalyticsCalculator.calculate(issues, fieldConfig);
+
     return new AnalyticsResponse(
         jiraSprintId,
         sprintName,
@@ -98,8 +101,8 @@ public class AnalyticsCalculator {
         buildIssueTypeBreakdown(breakdownIssues, fieldConfig),
         toStatusDistribution(statusBuckets),
         toDomainBreakdown(domainBuckets, totalDomainTouches, totalStoryPoints),
-        workflowAnalyticsCalculator.calculateStageDistribution(issues, fieldConfig),
-        workflowAnalyticsCalculator.calculateDevSubDomainMetrics(issues, fieldConfig));
+        workflowAnalytics.stageDistribution(),
+        workflowAnalytics.devSubDomainMetrics());
   }
 
   private BugsVsFeaturesDto buildIssueTypeBreakdown(

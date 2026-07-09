@@ -13,21 +13,14 @@ import java.util.Optional;
 public class WorkflowSectionResolver {
 
   public Optional<String> resolveSectionKey(String status, WorkflowAnalysisConfig config) {
-    if (status == null || status.isBlank() || config == null || config.sections() == null) {
+    return resolveSectionKey(status, buildStatusToSectionKeyMap(config));
+  }
+
+  public Optional<String> resolveSectionKey(String status, Map<String, String> statusToSectionKey) {
+    if (status == null || status.isBlank() || statusToSectionKey == null || statusToSectionKey.isEmpty()) {
       return Optional.empty();
     }
-    String normalizedStatus = normalize(status);
-    for (WorkflowAnalysisSection section : config.sections()) {
-      if (section.statuses() == null) {
-        continue;
-      }
-      for (String configuredStatus : section.statuses()) {
-        if (configuredStatus != null && normalize(configuredStatus).equals(normalizedStatus)) {
-          return Optional.of(section.key());
-        }
-      }
-    }
-    return Optional.empty();
+    return Optional.ofNullable(statusToSectionKey.get(normalize(status)));
   }
 
   public Map<String, String> buildStatusToSectionKeyMap(WorkflowAnalysisConfig config) {

@@ -1,18 +1,10 @@
 package com.sprinklr.sprintplanning.search.service;
 
-import com.sprinklr.sprintplanning.analytics.calculator.AnalyticsCalculator;
-import com.sprinklr.sprintplanning.analytics.workflow.WorkflowAnalyticsCalculator;
-import com.sprinklr.sprintplanning.analytics.workflow.WorkflowSectionResolver;
-import com.sprinklr.sprintplanning.analytics.dto.AnalyticsResponse;
-import com.sprinklr.sprintplanning.planning.calculator.CapacityAllocationCalculator;
-import com.sprinklr.sprintplanning.planning.calculator.PlanningCalculator;
-import com.sprinklr.sprintplanning.planning.config.PlanningProperties;
 import com.sprinklr.sprintplanning.client.jira.JiraClient;
 import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.enums.StatusCategory;
 import com.sprinklr.sprintplanning.common.exception.ResourceNotFoundException;
 import com.sprinklr.sprintplanning.common.model.IssueSearchPage;
-import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.common.model.JiraFieldConfig;
 import com.sprinklr.sprintplanning.release.model.ReleaseBasicFilters;
 import com.sprinklr.sprintplanning.release.model.ReleaseConfigDocument;
@@ -24,6 +16,8 @@ import com.sprinklr.sprintplanning.search.dto.IssueSearchReleaseRequest;
 import com.sprinklr.sprintplanning.search.dto.TicketViewDto;
 import com.sprinklr.sprintplanning.search.jql.JqlBuilder;
 import com.sprinklr.sprintplanning.search.jql.JqlMergeHelper;
+import com.sprinklr.sprintplanning.search.jql.ReleaseJqlResolver;
+import com.sprinklr.sprintplanning.search.support.PodProjectKeyResolver;
 import com.sprinklr.sprintplanning.team.mapper.JiraConfigMapper;
 import com.sprinklr.sprintplanning.team.model.PodDocument;
 import com.sprinklr.sprintplanning.team.model.PodJiraConfig;
@@ -55,21 +49,29 @@ class IssueSearchServiceImplTest {
   private JiraClient jiraClient;
   @Mock
   private JiraConfigMapper jiraConfigMapper;
+  @Mock
+  private ReleaseInsightsService releaseInsightsService;
 
   private IssueSearchService issueSearchService;
 
   @BeforeEach
   void setUp() {
+    PodProjectKeyResolver podProjectKeyResolver = new PodProjectKeyResolver();
+    ReleaseJqlResolver releaseJqlResolver = new ReleaseJqlResolver(
+        new JqlBuilder(),
+        new JqlMergeHelper(),
+        new FilterMergeHelper(),
+        podProjectKeyResolver);
     issueSearchService = new IssueSearchServiceImpl(
         teamService,
         releaseService,
         jiraClient,
         jiraConfigMapper,
         new JqlBuilder(),
-        new JqlMergeHelper(),
         new FilterMergeHelper(),
-        new AnalyticsCalculator(new WorkflowAnalyticsCalculator(new WorkflowSectionResolver())),
-        new PlanningCalculator(new PlanningProperties(), new CapacityAllocationCalculator()));
+        releaseJqlResolver,
+        podProjectKeyResolver,
+        releaseInsightsService);
   }
 
   @Test
@@ -184,60 +186,6 @@ class IssueSearchServiceImplTest {
     assertThatThrownBy(() -> issueSearchService.searchInRelease(
         "pod-1", "missing", new IssueSearchReleaseRequest(null), 0, 50))
         .isInstanceOf(ResourceNotFoundException.class);
-  }
-
-  @Test
-  void analyzeReleaseUsesMergedJqlAndReturnsDomainBreakdown() {
-    ReleaseConfigDocument release = releaseWithBaseJql("project = SCRUM AND fixVersion = \"Q3\"");
-    release.setName("Q3 Release");
-
-    PodDocument pod = podWithProjects("pod-1", List.of("SCRUM"));
-    JiraFieldConfig fieldConfig = fieldConfig();
-
-    when(teamService.getActivePodDocument("pod-1")).thenReturn(pod);
-    when(releaseService.getActiveReleaseDocument("pod-1", "release-1")).thenReturn(release);
-    when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig);
-    when(jiraClient.searchAllIssues(any(), eq(fieldConfig)))
-        .thenReturn(List.of(
-            new IssueView("SCRUM-1", "Done", Domain.DEV, 5.0, "Story", "Done", StatusCategory.DONE),
-            new IssueView("SCRUM-2", "Todo", Domain.QA, 3.0, "Bug", "To Do", StatusCategory.TODO)));
-
-    AnalyticsResponse result = issueSearchService.analyzeRelease(
-        "pod-1",
-        "release-1",
-        new IssueSearchReleaseRequest("status != Done", null));
-
-    assertThat(result.sprintName()).isEqualTo("Q3 Release");
-    assertThat(result.issueCounts().total()).isEqualTo(1);
-    assertThat(result.domainBreakdown()).extracting("domain").containsExactly(Domain.DEV);
-    verify(jiraClient).searchAllIssues(
-        eq("(project = SCRUM AND fixVersion = \"Q3\") AND (status != Done)"),
-        eq(fieldConfig));
-  }
-
-  @Test
-  void analyzeReleaseFiltersIssuesByBugProfile() {
-    ReleaseConfigDocument release = releaseWithBaseJql("project = SCRUM AND fixVersion = \"Q3\"");
-    release.setName("Q3 Release");
-
-    PodDocument pod = podWithProjects("pod-1", List.of("SCRUM"));
-    JiraFieldConfig fieldConfig = fieldConfig();
-
-    when(teamService.getActivePodDocument("pod-1")).thenReturn(pod);
-    when(releaseService.getActiveReleaseDocument("pod-1", "release-1")).thenReturn(release);
-    when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig);
-    when(jiraClient.searchAllIssues(any(), eq(fieldConfig)))
-        .thenReturn(List.of(
-            new IssueView("SCRUM-1", "Done", Domain.DEV, 5.0, "Story", "Done", StatusCategory.DONE),
-            new IssueView("SCRUM-2", "Todo", Domain.QA, 3.0, "Bug", "To Do", StatusCategory.TODO)));
-
-    AnalyticsResponse result = issueSearchService.analyzeRelease(
-        "pod-1",
-        "release-1",
-        new IssueSearchReleaseRequest(null, "bug"));
-
-    assertThat(result.issueCounts().total()).isEqualTo(1);
-    assertThat(result.domainBreakdown()).extracting("domain").containsExactly(Domain.QA);
   }
 
   private ReleaseConfigDocument releaseWithBaseJql(String baseJql) {

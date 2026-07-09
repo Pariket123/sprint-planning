@@ -7,6 +7,15 @@ spring:
   config:
     import: optional:file:.env[.properties]
 
+# logging:
+#   level:
+#     com.sprinklr.sprintplanning: DEBUG
+    
 logging:
   level:
     com.sprinklr.sprintplanning: DEBUG
+    org.springframework.web.servlet.DispatcherServlet: DEBUG
+    org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping: TRACE
+    org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web.filter: DEBUG

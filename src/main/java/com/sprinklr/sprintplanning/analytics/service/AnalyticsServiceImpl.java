@@ -15,6 +15,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
 
 @Service
 public class AnalyticsServiceImpl implements AnalyticsService {
@@ -23,16 +26,19 @@ public class AnalyticsServiceImpl implements AnalyticsService {
   private final JiraClient jiraClient;
   private final JiraConfigMapper jiraConfigMapper;
   private final AnalyticsCalculator analyticsCalculator;
+  private final Executor jiraFetchExecutor;
 
   public AnalyticsServiceImpl(
       TeamService teamService,
       JiraClient jiraClient,
       JiraConfigMapper jiraConfigMapper,
-      AnalyticsCalculator analyticsCalculator) {
+      AnalyticsCalculator analyticsCalculator,
+      Executor jiraFetchExecutor) {
     this.teamService = teamService;
     this.jiraClient = jiraClient;
     this.jiraConfigMapper = jiraConfigMapper;
     this.analyticsCalculator = analyticsCalculator;
+    this.jiraFetchExecutor = jiraFetchExecutor;
   }
 
   @Override
@@ -50,11 +56,28 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     PodDocument pod = teamService.getActivePodDocument(podId);
     JiraFieldConfig fieldConfig = jiraConfigMapper.toJiraFieldConfig(pod.getJiraConfig());
 
-    SprintView sprint = jiraClient.getSprint(jiraSprintId);
-    List<IssueView> allIssues = jiraClient.searchAllIssues("sprint = " + jiraSprintId, fieldConfig);
+    CompletableFuture<SprintView> sprintFuture = CompletableFuture.supplyAsync(
+        () -> jiraClient.getSprint(jiraSprintId), jiraFetchExecutor);
+    CompletableFuture<List<IssueView>> issuesFuture = CompletableFuture.supplyAsync(
+        () -> jiraClient.searchAllIssues("sprint = " + jiraSprintId, fieldConfig), jiraFetchExecutor);
+
+    SprintView sprint = joinFuture(sprintFuture);
+    List<IssueView> allIssues = joinFuture(issuesFuture);
     List<IssueView> issues = DevSubDomainAnalysisProfiles.filterIssues(allIssues, fieldConfig, issueTypeProfile);
 
     return analyticsCalculator.calculate(jiraSprintId, sprint.name(), issues, allIssues, fieldConfig);
+  }
+
+  private static <T> T joinFuture(CompletableFuture<T> future) {
+    try {
+      return future.join();
+    } catch (CompletionException ex) {
+      Throwable cause = ex.getCause();
+      if (cause instanceof RuntimeException runtimeException) {
+        throw runtimeException;
+      }
+      throw ex;
+    }
   }
 
   private Long requireBoardId(PodDocument pod) {
