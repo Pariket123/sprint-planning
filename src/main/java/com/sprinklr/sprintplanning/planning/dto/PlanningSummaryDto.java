@@ -11,6 +11,9 @@ public record PlanningSummaryDto(
     double totalRollover,
     double totalSelectedStoryPoints,
     int totalSelectedIssueCount,
+    double totalCommittedStoryPoints,
+    int totalCommittedIssueCount,
+    double totalRoadmapCapacity,
     List<DomainPlanningMetricsDto> domainMetrics,
     RiskLevel riskLevel,
     CapacityAllocationTableDto capacityAllocationTable

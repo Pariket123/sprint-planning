@@ -26,6 +26,7 @@ public interface JiraTicketMapper {
   @Mapping(target = "priority", source = ".", qualifiedByName = "resolvePriority")
   @Mapping(target = "fixVersions", source = ".", qualifiedByName = "resolveFixVersions")
   @Mapping(target = "sprintIds", source = ".", qualifiedByName = "resolveSprintIds")
+  @Mapping(target = "currentSprintId", source = ".", qualifiedByName = "resolveCurrentSprintId")
   @Mapping(target = "labels", source = ".", qualifiedByName = "resolveLabels")
   @Mapping(target = "components", source = ".", qualifiedByName = "resolveComponents")
   TicketViewDto toTicketView(JiraIssueDto issue, @Context JiraFieldConfig config);

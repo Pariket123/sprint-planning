@@ -104,7 +104,8 @@ public class PlanningServiceImpl implements PlanningService {
   @Override
   public SprintPlanningDocument updateOverrides(String podId, Long jiraSprintId, List<PlanningOverride> overrides) {
     SprintPlanningDocument document = getOrCreatePlanning(podId, jiraSprintId);
-    document.setOverrides(overrides != null ? overrides : List.of());
+    List<PlanningOverride> normalizedOverrides = overrides != null ? overrides : List.of();
+    document.setOverrides(normalizedOverrides);
     return save(document);
   }
 
@@ -311,7 +312,12 @@ public class PlanningServiceImpl implements PlanningService {
         planning.getRolloverStoryPoints(),
         planningMapper.toResolvedRolloverMap(resolvedRollover),
         sprintIssues.size(),
-        selectedIssues.size(),
+        summary.totalSelectedIssueCount(),
+        summary.totalSelectedStoryPoints(),
+        summary.totalCommittedIssueCount(),
+        summary.totalCommittedStoryPoints(),
+        summary.totalRoadmapCapacity(),
+        summary.riskLevel(),
         selectedIssues.stream().map(IssueView::key).toList(),
         nullSafeCopy(planning.getPlannedIssueKeys()),
         committedKeys,
@@ -457,10 +463,35 @@ public class PlanningServiceImpl implements PlanningService {
 
   @Override
   public BacklogPageDto moveIssuesToBacklog(
-      String podId, int startAt, int maxResults, List<String> issueKeys) {
+      String podId, Long jiraSprintId, int startAt, int maxResults, List<String> issueKeys) {
     teamService.getActivePodDocument(podId);
-    jiraClient.moveIssuesToBacklog(issueKeys);
+    List<String> normalizedKeys = StringListNormalizer.normalize(issueKeys);
+    jiraClient.moveIssuesToBacklog(normalizedKeys);
+    if (jiraSprintId != null && !normalizedKeys.isEmpty()) {
+      removeCommittedIssueKeys(podId, jiraSprintId, normalizedKeys);
+    }
     return getBacklog(podId, startAt, maxResults);
+  }
+
+  @Override
+  public PlanningViewDto uncommitIssues(String podId, Long jiraSprintId, List<String> issueKeys) {
+    teamService.getActivePodDocument(podId);
+    List<String> normalizedKeys = StringListNormalizer.normalize(issueKeys);
+    if (!normalizedKeys.isEmpty()) {
+      removeCommittedIssueKeys(podId, jiraSprintId, normalizedKeys);
+    }
+    return getPlanningView(podId, jiraSprintId);
+  }
+
+  private void removeCommittedIssueKeys(String podId, Long jiraSprintId, List<String> issueKeys) {
+    SprintPlanningDocument planning = planningDocumentAccessor.normalize(getOrCreatePlanning(podId, jiraSprintId));
+    List<String> updatedKeys = removeIssueKeys(planning.getCommittedIssueKeys(), issueKeys);
+    if (updatedKeys.size() == planning.getCommittedIssueKeys().size()) {
+      return;
+    }
+    planning.setCommittedIssueKeys(updatedKeys);
+    planning.setCommittedAt(Instant.now());
+    save(planning);
   }
 
   private PlannedScopeDto toPlannedScopeDto(SprintPlanningDocument planning) {
@@ -474,7 +505,7 @@ public class PlanningServiceImpl implements PlanningService {
       Long plannedSprintId,
       Set<String> committedKeys,
       Set<String> outgoingRolloverKeys) {
-    Long currentSprintId = resolveCurrentSprintId(ticket.sprintIds());
+    Long currentSprintId = ticket.currentSprintId();
     boolean onPlan = plannedSprintId.equals(currentSprintId);
     boolean rolledOver = outgoingRolloverKeys.contains(ticket.key())
         || (currentSprintId != null && !onPlan)
@@ -494,13 +525,6 @@ public class PlanningServiceImpl implements PlanningService {
         rolledOver);
   }
 
-  private Long resolveCurrentSprintId(List<Long> sprintIds) {
-    if (sprintIds == null || sprintIds.isEmpty()) {
-      return null;
-    }
-    return sprintIds.get(sprintIds.size() - 1);
-  }
-
   private List<String> mergeIssueKeys(List<String> existingKeys, List<String> newKeys) {
     LinkedHashSet<String> merged = new LinkedHashSet<>();
     if (existingKeys != null) {
@@ -508,6 +532,16 @@ public class PlanningServiceImpl implements PlanningService {
     }
     merged.addAll(newKeys);
     return new ArrayList<>(merged);
+  }
+
+  private List<String> removeIssueKeys(List<String> existingKeys, List<String> keysToRemove) {
+    if (existingKeys == null || existingKeys.isEmpty()) {
+      return List.of();
+    }
+    Set<String> removeSet = new HashSet<>(keysToRemove);
+    return existingKeys.stream()
+        .filter(key -> !removeSet.contains(key))
+        .toList();
   }
 
   private BacklogPageDto toBacklogPageDto(BacklogPage page) {

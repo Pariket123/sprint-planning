@@ -322,6 +322,8 @@ export interface RolloverIssueDto {
   issueKey: string
   fromSprintId: number
   toSprintId: number
+  fromSprintName: string | null
+  toSprintName: string | null
   statusAtRollover: string
   storyPointsAtRollover: number | null
   domain: Domain
@@ -354,6 +356,11 @@ export interface PlanningViewDto {
   resolvedRollover: Record<string, number>
   sprintIssueCount: number
   selectedIssueCount: number
+  selectedStoryPoints: number
+  committedIssueCount: number
+  committedStoryPoints: number
+  totalRoadmapCapacity: number
+  riskLevel: RiskLevel
   selectedIssueKeys: string[]
   plannedIssueKeys: string[]
   committedIssueKeys: string[]
@@ -377,6 +384,9 @@ export interface PlanningSummaryDto {
   totalRollover: number
   totalSelectedStoryPoints: number
   totalSelectedIssueCount: number
+  totalCommittedStoryPoints: number
+  totalCommittedIssueCount: number
+  totalRoadmapCapacity: number
   domainMetrics: DomainPlanningMetricsDto[]
   riskLevel: RiskLevel
   capacityAllocationTable: CapacityAllocationTableDto | null
@@ -450,6 +460,10 @@ export interface BacklogPageDto {
 export interface IssueMoveRequest {
   issueKeys: string[]
   addToPlannedScope?: boolean | null
+}
+
+export interface IssueKeysRequest {
+  issueKeys: string[]
 }
 
 export interface UpdatePlannedScopeRequest {

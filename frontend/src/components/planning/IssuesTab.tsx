@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
-import { ApiError, getPlanningIssues, moveIssuesToBacklog, moveIssuesToSprint } from '../../api'
+import { ArrowLeft, ArrowRight, MinusCircle } from 'lucide-react'
+import {
+  ApiError,
+  getPlanningIssues,
+  moveIssuesToBacklog,
+  moveIssuesToSprint,
+  uncommitIssues,
+} from '../../api'
 import type { PlanningIssuesPageDto, PlanningViewDto } from '../../api/types'
 import { LoadingState } from '../common'
 import { PlanningIssueTable } from './PlanningIssueTable'
@@ -20,6 +26,8 @@ export function IssuesTab({ podId, jiraSprintId, planning, onPlanningUpdated }: 
   const [moving, setMoving] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [addToPlannedScope, setAddToPlannedScope] = useState(true)
+
+  const committedKeys = planning.committedIssueKeys ?? []
 
   const loadIssues = useCallback(async () => {
     setIssuesLoading(true)
@@ -42,6 +50,8 @@ export function IssuesTab({ podId, jiraSprintId, planning, onPlanningUpdated }: 
 
   const sprintIssues = issuesPage?.sprintIssues ?? []
   const selectedIssues = issuesPage?.selectedIssues ?? []
+  const selectedCommittedKeys = sprintSelected.filter((key) => committedKeys.includes(key))
+  const selectedUncommittedKeys = sprintSelected.filter((key) => !committedKeys.includes(key))
 
   const handleMoveToBacklog = async () => {
     if (sprintSelected.length === 0) {
@@ -51,7 +61,7 @@ export function IssuesTab({ podId, jiraSprintId, planning, onPlanningUpdated }: 
     setMoving(true)
     setActionError(null)
     try {
-      await moveIssuesToBacklog(podId, { issueKeys: sprintSelected })
+      await moveIssuesToBacklog(podId, jiraSprintId, { issueKeys: sprintSelected })
       setSprintSelected([])
       await onPlanningUpdated()
       await loadIssues()
@@ -63,7 +73,7 @@ export function IssuesTab({ podId, jiraSprintId, planning, onPlanningUpdated }: 
   }
 
   const handleCommit = async () => {
-    if (sprintSelected.length === 0) {
+    if (selectedUncommittedKeys.length === 0) {
       return
     }
 
@@ -71,7 +81,7 @@ export function IssuesTab({ podId, jiraSprintId, planning, onPlanningUpdated }: 
     setActionError(null)
     try {
       await moveIssuesToSprint(podId, jiraSprintId, {
-        issueKeys: sprintSelected,
+        issueKeys: selectedUncommittedKeys,
         addToPlannedScope,
       })
       setSprintSelected([])
@@ -79,6 +89,25 @@ export function IssuesTab({ podId, jiraSprintId, planning, onPlanningUpdated }: 
       await loadIssues()
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Failed to commit issues.')
+    } finally {
+      setMoving(false)
+    }
+  }
+
+  const handleUncommit = async () => {
+    if (selectedCommittedKeys.length === 0) {
+      return
+    }
+
+    setMoving(true)
+    setActionError(null)
+    try {
+      await uncommitIssues(podId, jiraSprintId, { issueKeys: selectedCommittedKeys })
+      setSprintSelected([])
+      await onPlanningUpdated()
+      await loadIssues()
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Failed to uncommit issues.')
     } finally {
       setMoving(false)
     }
@@ -98,6 +127,17 @@ export function IssuesTab({ podId, jiraSprintId, planning, onPlanningUpdated }: 
 
   return (
     <div className="space-y-6">
+      <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        <p className="font-medium">Reduce over-capacity</p>
+        <p className="mt-1">
+          Utilization follows <span className="font-medium">committed</span> story points. Select
+          committed issues and use <span className="font-medium">Uncommit from plan</span> to lower
+          utilization while keeping them in the Jira sprint. Use{' '}
+          <span className="font-medium">Move to backlog</span> to remove them from the sprint
+          entirely.
+        </p>
+      </div>
+
       <div className="flex flex-wrap items-center gap-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
         <label className="inline-flex items-center gap-2 text-sm text-gray-700">
           <input
@@ -107,6 +147,17 @@ export function IssuesTab({ podId, jiraSprintId, planning, onPlanningUpdated }: 
           />
           Add to planned scope when committing
         </label>
+        <button
+          type="button"
+          onClick={() => void handleUncommit()}
+          disabled={moving || selectedCommittedKeys.length === 0}
+          className="btn-secondary"
+        >
+          <MinusCircle className="h-4 w-4" aria-hidden="true" />
+          {moving
+            ? 'Working...'
+            : `Uncommit from plan (${selectedCommittedKeys.length})`}
+        </button>
         <button
           type="button"
           onClick={() => void handleMoveToBacklog()}
@@ -119,11 +170,11 @@ export function IssuesTab({ podId, jiraSprintId, planning, onPlanningUpdated }: 
         <button
           type="button"
           onClick={() => void handleCommit()}
-          disabled={moving || sprintSelected.length === 0}
+          disabled={moving || selectedUncommittedKeys.length === 0}
           className="btn-primary"
         >
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          {moving ? 'Working...' : `Commit selected (${sprintSelected.length})`}
+          {moving ? 'Working...' : `Commit selected (${selectedUncommittedKeys.length})`}
         </button>
       </div>
 
@@ -139,6 +190,7 @@ export function IssuesTab({ podId, jiraSprintId, planning, onPlanningUpdated }: 
           title={`Sprint issues (${issuesPage?.sprintIssueTotal ?? sprintIssues.length})`}
           selectable
           selectedKeys={sprintSelected}
+          committedKeys={committedKeys}
           onSelectionChange={setSprintSelected}
         />
       </section>
@@ -147,22 +199,9 @@ export function IssuesTab({ podId, jiraSprintId, planning, onPlanningUpdated }: 
         <PlanningIssueTable
           issues={selectedIssues}
           title={`Selected issues (${planning.selectedIssueCount ?? selectedIssues.length})`}
+          committedKeys={committedKeys}
         />
       </section>
-
-      {(planning.committedIssueKeys ?? []).length > 0 && (
-        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-900">Committed issue keys</h3>
-          <p className="mt-2 text-sm text-gray-600">{(planning.committedIssueKeys ?? []).join(', ')}</p>
-        </section>
-      )}
-
-      {(planning.plannedIssueKeys ?? []).length > 0 && (
-        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-900">Planned issue keys</h3>
-          <p className="mt-2 text-sm text-gray-600">{(planning.plannedIssueKeys ?? []).join(', ')}</p>
-        </section>
-      )}
     </div>
   )
 }

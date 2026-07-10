@@ -23,6 +23,7 @@ public record TicketViewDto(
     String priority,
     List<String> fixVersions,
     List<Long> sprintIds,
+    Long currentSprintId,
     List<String> labels,
     List<String> components
 ) {

@@ -255,6 +255,87 @@ class PlanningCalculatorTest {
         .isEqualTo(5);
   }
 
+  @Test
+  void countsSelectedIssuesAndStoryPointsUniquelyAcrossDomains() {
+    List<IssueView> selectedIssues = List.of(
+        new IssueView(
+            "SCRUM-1",
+            "Story 1",
+            Domain.BE,
+            10.0,
+            "Story",
+            "To Do",
+            StatusCategory.TODO,
+            List.of(
+                new DomainAllocation(Domain.BE, 3.0, false),
+                new DomainAllocation(Domain.QA, 1.0, false)),
+            List.of()),
+        new IssueView(
+            "SCRUM-2",
+            "Story 2",
+            Domain.UI,
+            8.0,
+            "Story",
+            "To Do",
+            StatusCategory.TODO,
+            List.of(
+                new DomainAllocation(Domain.UI, 3.0, false),
+                new DomainAllocation(Domain.QA, 2.0, false),
+                new DomainAllocation(Domain.AI, 2.0, false)),
+            List.of()),
+        new IssueView("SCRUM-3", "Story 3", Domain.BE, 4.0, "Story", "To Do", StatusCategory.TODO),
+        new IssueView(
+            "SCRUM-4",
+            "Story 4",
+            Domain.QA,
+            6.0,
+            "Story",
+            "To Do",
+            StatusCategory.TODO,
+            List.of(
+                new DomainAllocation(Domain.UI, 3.0, false),
+                new DomainAllocation(Domain.AI, 2.0, false),
+                new DomainAllocation(Domain.QA, 3.0, false)),
+            List.of()));
+
+    PlanningCalculationInput input = new PlanningCalculationInput(
+        21L,
+        Instant.parse("2026-06-08T00:00:00Z"),
+        Instant.parse("2026-06-12T00:00:00Z"),
+        List.of(personCapacity("Dev", Domain.BE, 100.0)),
+        List.of(),
+        Map.of(),
+        Map.of(),
+        selectedIssues,
+        List.of(),
+        List.of());
+
+    var summary = calculator.calculateSummary(input);
+
+    assertThat(summary.totalSelectedIssueCount()).isEqualTo(4);
+    assertThat(summary.totalSelectedStoryPoints()).isEqualTo(23.0);
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.BE).first()
+        .satisfies(be -> {
+          assertThat(be.selectedStoryPoints()).isEqualTo(7.0);
+          assertThat(be.selectedIssueCount()).isEqualTo(2);
+        });
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.UI).first()
+        .satisfies(ui -> {
+          assertThat(ui.selectedStoryPoints()).isEqualTo(6.0);
+          assertThat(ui.selectedIssueCount()).isEqualTo(2);
+        });
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.AI).first()
+        .satisfies(ai -> {
+          assertThat(ai.selectedStoryPoints()).isEqualTo(4.0);
+          assertThat(ai.selectedIssueCount()).isEqualTo(2);
+        });
+    assertThat(summary.domainMetrics()).filteredOn(m -> m.domain() == Domain.QA).first()
+        .satisfies(qa -> {
+          assertThat(qa.selectedStoryPoints()).isEqualTo(6.0);
+          assertThat(qa.selectedIssueCount()).isEqualTo(3);
+        });
+  }
+
   private static PersonCapacity personCapacity(String name, Domain domain, double bandwidth) {
     PersonCapacity capacity = new PersonCapacity();
     capacity.setPersonName(name);

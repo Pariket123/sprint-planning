@@ -46,6 +46,13 @@ export function OverridesEditor({ initial, onSave }: OverridesEditorProps) {
 
   return (
     <div className="space-y-4">
+      <p className="text-sm text-gray-600">
+        Overrides adjust <span className="font-medium">selected</span> scope only.{' '}
+        <span className="font-medium">EXCLUDE</span> stops counting an issue toward selected SP
+        (it can remain in the Jira sprint). To lower committed SP and utilization, use{' '}
+        <span className="font-medium">Uncommit from plan</span> on the Issues tab.{' '}
+        <span className="font-medium">INCLUDE</span> counts a backlog issue toward selected scope.
+      </p>
       <div className="overflow-x-auto rounded-lg border border-gray-200">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">

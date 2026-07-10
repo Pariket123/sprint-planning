@@ -17,6 +17,8 @@ public class RolloverMapper {
         issue.getIssueKey(),
         issue.getFromSprintId(),
         issue.getToSprintId(),
+        null,
+        null,
         issue.getStatusAtRollover(),
         issue.getStoryPointsAtRollover(),
         issue.getDomain(),

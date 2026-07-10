@@ -37,6 +37,7 @@ import { SprintSelector } from '../components/selectors/SprintSelector'
 import { useAppContext } from '../context/AppContext'
 import { formatInstant, formatSprintState, formatStoryPoints } from '../utils/format'
 import { buildPlanningSummary } from '../utils/planningSummary'
+import { PlanningCapacityGuidance } from '../components/planning/PlanningCapacityGuidance'
 
 type PlanTab =
   | 'overview'
@@ -386,24 +387,33 @@ function OverviewTab({
           <h2 className="text-sm font-semibold text-gray-900">Planning summary</h2>
           <RiskBadge risk={summary.riskLevel} />
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <PlanningCapacityGuidance summary={summary} />
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <AnalyticsSummaryCard
             label="Total available capacity"
             value={formatStoryPoints(summary.totalAvailableCapacity)}
           />
           <AnalyticsSummaryCard label="Total rollover" value={formatStoryPoints(summary.totalRollover)} />
           <AnalyticsSummaryCard
+            label="Roadmap capacity"
+            value={formatStoryPoints(summary.totalRoadmapCapacity)}
+          />
+          <AnalyticsSummaryCard
             label="Selected story points"
             value={formatStoryPoints(summary.totalSelectedStoryPoints)}
           />
           <AnalyticsSummaryCard label="Selected issues" value={summary.totalSelectedIssueCount} />
           <AnalyticsSummaryCard
-            label="Planned issues"
-            value={(planning.plannedIssueKeys ?? []).length}
+            label="Committed story points"
+            value={formatStoryPoints(summary.totalCommittedStoryPoints)}
           />
           <AnalyticsSummaryCard
             label="Committed issues"
-            value={(planning.committedIssueKeys ?? []).length}
+            value={summary.totalCommittedIssueCount}
+          />
+          <AnalyticsSummaryCard
+            label="Planned issues"
+            value={(planning.plannedIssueKeys ?? []).length}
           />
           <AnalyticsSummaryCard
             label="Rollover issues"
@@ -440,21 +450,31 @@ function SummaryTab({
           <div>
             <h2 className="text-sm font-semibold text-gray-900">Capacity vs committed</h2>
             <p className="mt-1 text-sm text-gray-600">
-              Review utilization and run validation before finalizing the sprint plan.
+              Risk and utilization are based on committed story points vs roadmap capacity.
             </p>
           </div>
           <RiskBadge risk={summary.riskLevel} />
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <PlanningCapacityGuidance summary={summary} />
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <AnalyticsSummaryCard
             label="Total available capacity"
             value={formatStoryPoints(summary.totalAvailableCapacity)}
           />
           <AnalyticsSummaryCard label="Total rollover" value={formatStoryPoints(summary.totalRollover)} />
           <AnalyticsSummaryCard
+            label="Roadmap capacity"
+            value={formatStoryPoints(summary.totalRoadmapCapacity)}
+          />
+          <AnalyticsSummaryCard
+            label="Committed story points"
+            value={formatStoryPoints(summary.totalCommittedStoryPoints)}
+          />
+          <AnalyticsSummaryCard
             label="Selected story points"
             value={formatStoryPoints(summary.totalSelectedStoryPoints)}
           />
+          <AnalyticsSummaryCard label="Committed issues" value={summary.totalCommittedIssueCount} />
           <AnalyticsSummaryCard label="Selected issues" value={summary.totalSelectedIssueCount} />
         </div>
       </section>

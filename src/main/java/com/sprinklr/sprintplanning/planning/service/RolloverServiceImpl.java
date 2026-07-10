@@ -88,7 +88,7 @@ public class RolloverServiceImpl implements RolloverService {
     planningDocumentAccessor.rolloverIssues(fromPlanning).add(rolloverIssue);
     save(fromPlanning);
 
-    return rolloverMapper.toDto(rolloverIssue);
+    return enrichDto(rolloverMapper.toDto(rolloverIssue));
   }
 
   @Override
@@ -108,27 +108,61 @@ public class RolloverServiceImpl implements RolloverService {
   public List<RolloverIssueDto> getOutgoingRollovers(String podId, Long jiraSprintId) {
     teamService.getActivePodDocument(podId);
     SprintPlanningDocument planning = planningDocumentAccessor.getOrCreate(podId, jiraSprintId);
+    Map<Long, String> sprintNames = new LinkedHashMap<>();
     return planningDocumentAccessor.rolloverIssues(planning).stream()
         .filter(issue -> jiraSprintId.equals(issue.getFromSprintId()))
         .map(rolloverMapper::toDto)
+        .map(dto -> enrichDto(dto, sprintNames))
         .toList();
   }
 
   @Override
   public List<RolloverIssueDto> getIncomingRollovers(String podId, Long jiraSprintId) {
     teamService.getActivePodDocument(podId);
+    Map<Long, String> sprintNames = new LinkedHashMap<>();
     return sprintPlanningRepository.findIncomingRollovers(podId, jiraSprintId).stream()
         .flatMap(document -> planningDocumentAccessor.rolloverIssues(document).stream())
         .filter(issue -> jiraSprintId.equals(issue.getToSprintId()))
         .map(rolloverMapper::toDto)
+        .map(dto -> enrichDto(dto, sprintNames))
         .toList();
   }
 
-  private boolean isIssueInSprint(TicketViewDto ticket, Long sprintId) {
-    if (ticket.sprintIds() == null || ticket.sprintIds().isEmpty()) {
-      return false;
+  private RolloverIssueDto enrichDto(RolloverIssueDto dto) {
+    return enrichDto(dto, new LinkedHashMap<>());
+  }
+
+  private RolloverIssueDto enrichDto(RolloverIssueDto dto, Map<Long, String> sprintNames) {
+    return new RolloverIssueDto(
+        dto.issueKey(),
+        dto.fromSprintId(),
+        dto.toSprintId(),
+        resolveSprintName(dto.fromSprintId(), sprintNames),
+        resolveSprintName(dto.toSprintId(), sprintNames),
+        dto.statusAtRollover(),
+        dto.storyPointsAtRollover(),
+        dto.domain(),
+        dto.domainLabel(),
+        dto.rolledOverAt(),
+        dto.rolledOverBy(),
+        dto.notes());
+  }
+
+  private String resolveSprintName(Long sprintId, Map<Long, String> sprintNames) {
+    if (sprintId == null) {
+      return null;
     }
-    return ticket.sprintIds().contains(sprintId);
+    return sprintNames.computeIfAbsent(sprintId, id -> {
+      try {
+        return jiraClient.getSprint(id).name();
+      } catch (RuntimeException ex) {
+        return String.valueOf(id);
+      }
+    });
+  }
+
+  private boolean isIssueInSprint(TicketViewDto ticket, Long sprintId) {
+    return sprintId != null && sprintId.equals(ticket.currentSprintId());
   }
 
   private RolloverIssue buildRolloverIssue(

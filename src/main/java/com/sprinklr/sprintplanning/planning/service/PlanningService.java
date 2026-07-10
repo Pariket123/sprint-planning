@@ -57,5 +57,8 @@ public interface PlanningService {
 
   PlanningViewDto moveIssuesToSprint(String podId, Long jiraSprintId, IssueMoveRequest request);
 
-  BacklogPageDto moveIssuesToBacklog(String podId, int startAt, int maxResults, List<String> issueKeys);
+  PlanningViewDto uncommitIssues(String podId, Long jiraSprintId, List<String> issueKeys);
+
+  BacklogPageDto moveIssuesToBacklog(
+      String podId, Long jiraSprintId, int startAt, int maxResults, List<String> issueKeys);
 }

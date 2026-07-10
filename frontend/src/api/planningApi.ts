@@ -1,6 +1,7 @@
 import { apiClient } from './apiClient'
 import type {
   BacklogPageDto,
+  IssueKeysRequest,
   IssueMoveRequest,
   PlannedIssueViewDto,
   PlannedScopeDto,
@@ -142,11 +143,13 @@ export function getBacklog(
 
 export function moveIssuesToBacklog(
   podId: string,
+  jiraSprintId: number,
   request: IssueMoveRequest,
   startAt = 0,
   maxResults = 50,
 ): Promise<BacklogPageDto> {
   const params = new URLSearchParams({
+    jiraSprintId: String(jiraSprintId),
     startAt: String(startAt),
     maxResults: String(maxResults),
   })
@@ -163,6 +166,17 @@ export function moveIssuesToSprint(
 ): Promise<PlanningViewDto> {
   return apiClient.post<PlanningViewDto>(
     `/pods/${podId}/sprints/${jiraSprintId}/issues/move`,
+    request,
+  )
+}
+
+export function uncommitIssues(
+  podId: string,
+  jiraSprintId: number,
+  request: IssueKeysRequest,
+): Promise<PlanningViewDto> {
+  return apiClient.post<PlanningViewDto>(
+    `/pods/${podId}/sprints/${jiraSprintId}/issues/uncommit`,
     request,
   )
 }

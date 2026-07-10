@@ -10,6 +10,8 @@ public record RolloverIssueDto(
     String issueKey,
     Long fromSprintId,
     Long toSprintId,
+    String fromSprintName,
+    String toSprintName,
     String statusAtRollover,
     Double storyPointsAtRollover,
     Domain domain,

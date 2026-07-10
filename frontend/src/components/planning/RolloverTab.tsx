@@ -340,7 +340,8 @@ function RolloverTable({
     [sprints],
   )
 
-  const sprintLabel = (sprintId: number) => sprintNameById.get(sprintId) ?? String(sprintId)
+  const sprintLabel = (sprintId: number, sprintName: string | null | undefined) =>
+    sprintName ?? sprintNameById.get(sprintId) ?? String(sprintId)
 
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -365,8 +366,12 @@ function RolloverTable({
               {records.map((record) => (
                 <tr key={`${record.issueKey}-${record.fromSprintId}-${record.toSprintId}`}>
                   <td className="px-4 py-3 font-medium text-brand-600">{record.issueKey}</td>
-                  <td className="px-4 py-3 text-gray-700">{sprintLabel(record.fromSprintId)}</td>
-                  <td className="px-4 py-3 text-gray-700">{sprintLabel(record.toSprintId)}</td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {sprintLabel(record.fromSprintId, record.fromSprintName)}
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {sprintLabel(record.toSprintId, record.toSprintName)}
+                  </td>
                   <td className="px-4 py-3 text-gray-700">{record.statusAtRollover ?? '-'}</td>
                   <td className="px-4 py-3 text-right text-gray-700">
                     {formatStoryPoints(record.storyPointsAtRollover)}

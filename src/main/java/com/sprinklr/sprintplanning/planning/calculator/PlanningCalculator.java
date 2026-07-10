@@ -109,9 +109,6 @@ public class PlanningCalculator {
     List<DomainPlanningMetricsDto> domainMetrics = new ArrayList<>();
     double totalAvailable = 0;
     double totalRollover = 0;
-    double totalSelected = 0;
-    double totalCommitted = 0;
-    int totalIssueCount = 0;
 
     for (Domain domain : CapacityAllocationCalculator.ENGINEERING_DOMAINS) {
       double available = availableCapacity.getOrDefault(domain, 0.0);
@@ -136,14 +133,16 @@ public class PlanningCalculator {
 
       totalAvailable += available;
       totalRollover += domainRollover;
-      totalSelected += selectedMetrics.storyPoints();
-      totalCommitted += committedStoryPoints;
-      totalIssueCount += selectedMetrics.issueCount();
     }
+
+    double totalSelected = sumUniqueIssueStoryPoints(input.selectedIssues());
+    int totalIssueCount = countUniqueIssues(input.selectedIssues());
+    double totalCommittedStoryPoints = sumUniqueIssueStoryPoints(input.committedIssues());
+    int totalCommittedIssueCount = countUniqueIssues(input.committedIssues());
 
     double totalPlannedRoadmap = capacityAllocationCalculator.plannedRoadmapStoryPoints(
         allocationTable, null);
-    RiskLevel riskLevel = determineRiskLevel(totalCommitted, totalPlannedRoadmap);
+    RiskLevel riskLevel = determineRiskLevel(totalCommittedStoryPoints, totalPlannedRoadmap);
 
     return new PlanningSummaryDto(
         input.jiraSprintId(),
@@ -151,6 +150,9 @@ public class PlanningCalculator {
         round(totalRollover),
         round(totalSelected),
         totalIssueCount,
+        round(totalCommittedStoryPoints),
+        totalCommittedIssueCount,
+        round(totalPlannedRoadmap),
         domainMetrics,
         riskLevel,
         allocationTable);
@@ -194,8 +196,6 @@ public class PlanningCalculator {
 
     List<DomainPlanningMetricsDto> domainMetrics = new ArrayList<>();
     double totalAvailable = 0;
-    double totalCommitted = 0;
-    int totalIssueCount = 0;
 
     for (Domain domain : CapacityAllocationCalculator.ENGINEERING_DOMAINS) {
       double available = availableCapacity.getOrDefault(domain, 0.0);
@@ -217,19 +217,20 @@ public class PlanningCalculator {
           determineCapacityRisk(committedStoryPoints, plannedRoadmapCapacity)));
 
       totalAvailable += available;
-      totalCommitted += committedStoryPoints;
-      totalIssueCount += metrics.issueCount();
     }
+
+    double totalCommittedStoryPoints = sumUniqueIssueStoryPoints(issues);
+    int totalIssueCount = countUniqueIssues(issues);
 
     double totalPlannedRoadmap = capacityAllocationCalculator.plannedRoadmapStoryPoints(
         allocationTable, null);
-    RiskLevel riskLevel = determineRiskLevel(totalCommitted, totalPlannedRoadmap);
+    RiskLevel riskLevel = determineRiskLevel(totalCommittedStoryPoints, totalPlannedRoadmap);
 
     return new ReleaseCapacitySummaryDto(
         releaseId,
         duration > 0 ? duration : null,
         round(totalAvailable),
-        round(totalCommitted),
+        round(totalCommittedStoryPoints),
         totalIssueCount,
         domainMetrics,
         riskLevel,
@@ -399,15 +400,38 @@ public class PlanningCalculator {
       metrics.put(domain, new SelectionMetrics());
     }
     for (IssueView issue : nullSafeIssues(issues)) {
+      if (issue == null) {
+        continue;
+      }
+      Map<Domain, Double> storyPointsByDomain = new EnumMap<>(Domain.class);
       for (DomainAllocation allocation : IssueAllocationHelper.effectiveAllocations(issue)) {
         if (!isPlanningDomain(allocation.domain())) {
           continue;
         }
-        metrics.computeIfAbsent(allocation.domain(), ignored -> new SelectionMetrics())
-            .add(allocation.storyPoints());
+        storyPointsByDomain.merge(allocation.domain(), allocation.storyPoints(), Double::sum);
+      }
+      String issueKey = issue.key();
+      for (Map.Entry<Domain, Double> entry : storyPointsByDomain.entrySet()) {
+        SelectionMetrics domainMetrics = metrics.computeIfAbsent(entry.getKey(), ignored -> new SelectionMetrics());
+        domainMetrics.addStoryPoints(entry.getValue());
+        domainMetrics.recordUniqueIssue(issueKey);
       }
     }
     return metrics;
+  }
+
+  private double sumUniqueIssueStoryPoints(List<IssueView> issues) {
+    return nullSafeIssues(issues).stream()
+        .mapToDouble(IssueAllocationHelper::totalStoryPoints)
+        .sum();
+  }
+
+  private int countUniqueIssues(List<IssueView> issues) {
+    return (int) nullSafeIssues(issues).stream()
+        .map(IssueView::key)
+        .filter(key -> key != null && !key.isBlank())
+        .distinct()
+        .count();
   }
 
   private Set<Domain> discoverDomainsFromIssues(List<IssueView> issues) {
@@ -605,10 +629,20 @@ public class PlanningCalculator {
 
     private double storyPoints;
     private int issueCount;
+    private final Set<String> countedIssueKeys = new LinkedHashSet<>();
 
-    void add(double points) {
+    void addStoryPoints(double points) {
       storyPoints += points;
-      issueCount++;
+    }
+
+    void recordUniqueIssue(String issueKey) {
+      if (issueKey == null || issueKey.isBlank()) {
+        issueCount++;
+        return;
+      }
+      if (countedIssueKeys.add(issueKey)) {
+        issueCount++;
+      }
     }
 
     double storyPoints() {

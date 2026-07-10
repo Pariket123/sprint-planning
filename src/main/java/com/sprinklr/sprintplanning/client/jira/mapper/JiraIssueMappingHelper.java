@@ -458,14 +458,20 @@ public class JiraIssueMappingHelper {
 
   /**
    * Resolves the issue's current sprint from the configured sprint field, preferring active/future
-   * sprints over closed ones when Jira returns sprint history.
+   * sprints over closed ones when Jira returns sprint history. Returns null when the issue is on
+   * the backlog (no active/future sprint), even if closed sprint history remains in the field.
    */
-  public Long resolveCurrentSprintId(JiraIssueDto issue, JiraFieldConfig config) {
-    List<Long> sprintIds = resolveSprintIds(issue, config);
-    if (sprintIds.isEmpty()) {
+  @Named("resolveCurrentSprintId")
+  public Long resolveCurrentSprintId(JiraIssueDto issue, @Context JiraFieldConfig config) {
+    JsonNode fields = fieldsOrNull(issue);
+    if (fields.isMissingNode()) {
       return null;
     }
-    return sprintIds.getLast();
+    JsonNode sprintField = sprintFieldNode(fields, config);
+    List<SprintRef> refs = !sprintField.isMissingNode() && !sprintField.isNull()
+        ? parseSprintRefs(sprintField)
+        : findSprintRefsInAllFields(fields);
+    return resolvePreferredSprintIdFromRefs(refs).orElse(null);
   }
 
   private JsonNode sprintFieldNode(JsonNode fields, JiraFieldConfig config) {

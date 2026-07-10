@@ -7,6 +7,7 @@ interface PlanningIssueTableProps {
   title?: string
   selectable?: boolean
   selectedKeys?: string[]
+  committedKeys?: string[]
   onSelectionChange?: (keys: string[]) => void
 }
 
@@ -15,6 +16,7 @@ export function PlanningIssueTable({
   title,
   selectable = false,
   selectedKeys = [],
+  committedKeys = [],
   onSelectionChange,
 }: PlanningIssueTableProps) {
   if (issues.length === 0) {
@@ -59,6 +61,7 @@ export function PlanningIssueTable({
                 </th>
               )}
               <th className="px-4 py-3 text-left font-medium text-gray-600">Key</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600">Plan</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Summary</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Type</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
@@ -81,6 +84,15 @@ export function PlanningIssueTable({
                   </td>
                 )}
                 <td className="px-4 py-3 font-medium text-brand-600">{issue.key}</td>
+                <td className="px-4 py-3">
+                  {committedKeys.includes(issue.key) ? (
+                    <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
+                      Committed
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-400">—</span>
+                  )}
+                </td>
                 <td className="max-w-xs truncate px-4 py-3 text-gray-900">{issue.summary}</td>
                 <td className="px-4 py-3 text-gray-700">{issue.issueType}</td>
                 <td className="px-4 py-3 text-gray-700">{issue.status}</td>

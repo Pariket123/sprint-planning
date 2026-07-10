@@ -5,6 +5,7 @@ import com.sprinklr.sprintplanning.common.model.SprintView;
 import com.sprinklr.sprintplanning.planning.dto.BacklogPageDto;
 import com.sprinklr.sprintplanning.planning.dto.IssueMoveRequest;
 import com.sprinklr.sprintplanning.planning.dto.PlanningViewDto;
+import com.sprinklr.sprintplanning.planning.dto.RiskLevel;
 import com.sprinklr.sprintplanning.planning.service.PlanningService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,6 +62,11 @@ class PlanningOperationsControllerTest {
         Map.of(),
         0,
         0,
+        0.0,
+        0,
+        0.0,
+        0.0,
+        RiskLevel.LOW,
         List.of(),
         List.of(),
         List.of(),
@@ -83,11 +89,51 @@ class PlanningOperationsControllerTest {
   }
 
   @Test
+  void uncommitIssuesReturnsRefreshedPlanningView() throws Exception {
+    PlanningViewDto view = new PlanningViewDto(
+        10L,
+        new SprintView(10L, "Sprint 10", "active", Instant.now(), Instant.now(), null),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        Map.of(),
+        Map.of(),
+        0,
+        0,
+        0.0,
+        0,
+        0.0,
+        0.0,
+        RiskLevel.LOW,
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        null);
+    when(planningService.uncommitIssues("pod-1", 10L, List.of("WFM-1")))
+        .thenReturn(view);
+
+    mockMvc.perform(post("/api/v1/pods/pod-1/sprints/10/issues/uncommit")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                { "issueKeys": ["WFM-1"] }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.jiraSprintId").value(10));
+
+    verify(planningService).uncommitIssues("pod-1", 10L, List.of("WFM-1"));
+  }
+
+  @Test
   void moveIssuesToBacklogReturnsRefreshedBacklogPage() throws Exception {
-    when(planningService.moveIssuesToBacklog("pod-1", 0, 50, List.of("WFM-3")))
+    when(planningService.moveIssuesToBacklog("pod-1", 20L, 0, 50, List.of("WFM-3")))
         .thenReturn(new BacklogPageDto(List.of(), 0, 50, 1, true));
 
     mockMvc.perform(post("/api/v1/pods/pod-1/backlog/move")
+            .param("jiraSprintId", "20")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 { "issueKeys": ["WFM-3"] }
@@ -95,5 +141,7 @@ class PlanningOperationsControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.total").value(1));
+
+    verify(planningService).moveIssuesToBacklog("pod-1", 20L, 0, 50, List.of("WFM-3"));
   }
 }

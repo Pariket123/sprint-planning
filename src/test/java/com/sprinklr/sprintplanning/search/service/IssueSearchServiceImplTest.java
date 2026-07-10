@@ -222,6 +222,6 @@ class IssueSearchServiceImplTest {
   private TicketViewDto ticket(String key) {
     return new TicketViewDto(
         key, "Summary", "Story", "To Do", StatusCategory.TODO,
-        3.0, Domain.DEV, null, List.of(), null, null, "High", List.of(), List.of(), List.of(), List.of());
+        3.0, Domain.DEV, null, List.of(), null, null, "High", List.of(), List.of(), null, List.of(), List.of());
   }
 }

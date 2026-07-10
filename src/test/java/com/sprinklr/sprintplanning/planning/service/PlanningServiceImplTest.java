@@ -112,6 +112,52 @@ class PlanningServiceImplTest {
   }
 
   @Test
+  void updateOverridesDoesNotUncommitExcludedIssues() {
+    SprintPlanningDocument planning = new SprintPlanningDocument();
+    planning.setPodId("pod-1");
+    planning.setJiraSprintId(20L);
+    planning.setCommittedIssueKeys(new ArrayList<>(List.of("WFM-1", "WFM-2")));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 20L))
+        .thenReturn(List.of(planning));
+    when(sprintPlanningRepository.save(any(SprintPlanningDocument.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    PlanningOverride exclude = new PlanningOverride();
+    exclude.setIssueKey("WFM-1");
+    exclude.setAction(OverrideAction.EXCLUDE);
+
+    planningService.updateOverrides("pod-1", 20L, List.of(exclude));
+
+    assertThat(planning.getCommittedIssueKeys()).containsExactly("WFM-1", "WFM-2");
+    assertThat(planning.getOverrides()).hasSize(1);
+  }
+
+  @Test
+  void uncommitIssuesRemovesCommittedKeysWithoutCallingJira() {
+    when(teamService.getActivePodDocument("pod-1")).thenReturn(podWithBoard(101L));
+    when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig());
+
+    SprintPlanningDocument planning = new SprintPlanningDocument();
+    planning.setPodId("pod-1");
+    planning.setJiraSprintId(20L);
+    planning.setCommittedIssueKeys(new ArrayList<>(List.of("WFM-1", "WFM-2")));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 20L))
+        .thenReturn(List.of(planning));
+    when(sprintPlanningRepository.save(any(SprintPlanningDocument.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+    when(jiraClient.getSprint(20L)).thenReturn(
+        new SprintView(20L, "Sprint 20", "active", Instant.now(), Instant.now(), null));
+    when(jiraClient.getSprintIssues(eq(20L), any())).thenReturn(List.of());
+    when(jiraClient.getBoardSprints(eq(101L), eq("closed"))).thenReturn(List.of());
+
+    planningService.uncommitIssues("pod-1", 20L, List.of("WFM-2"));
+
+    verify(jiraClient, never()).moveIssuesToBacklog(any());
+    verify(jiraClient, never()).moveIssuesToSprint(any(), eq(20L));
+    assertThat(planning.getCommittedIssueKeys()).containsExactly("WFM-1");
+  }
+
+  @Test
   void updatePlannedScopeStoresNormalizedIssueKeys() {
     when(teamService.getActivePodDocument("pod-1")).thenReturn(podWithBoard(101L));
     SprintPlanningDocument planning = new SprintPlanningDocument();
@@ -173,6 +219,32 @@ class PlanningServiceImplTest {
 
     when(jiraClient.getIssuesByKeys(eq(List.of("CARE-105615")), any()))
         .thenReturn(List.of(ticket("CARE-105615", List.of())));
+
+    List<PlannedIssueViewDto> plannedIssues = planningService.getPlannedIssues("pod-1", 12L);
+
+    assertThat(plannedIssues).hasSize(1);
+    assertThat(plannedIssues.getFirst().currentSprintId()).isNull();
+    assertThat(plannedIssues.getFirst().rolledOver()).isFalse();
+  }
+
+  @Test
+  void getPlannedIssuesTreatsClosedSprintHistoryAsBacklog() {
+    PodDocument pod = podWithBoard(101L);
+    when(teamService.getActivePodDocument("pod-1")).thenReturn(pod);
+    when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig());
+
+    SprintPlanningDocument planning = new SprintPlanningDocument();
+    planning.setPodId("pod-1");
+    planning.setJiraSprintId(12L);
+    planning.setPlannedIssueKeys(new ArrayList<>(List.of("SCRUM-13")));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 12L))
+        .thenReturn(List.of(planning));
+
+    when(jiraClient.getIssuesByKeys(eq(List.of("SCRUM-13")), any()))
+        .thenReturn(List.of(new TicketViewDto(
+            "SCRUM-13", "Summary", "Story", "BACKLOG(DEV)", StatusCategory.TODO,
+            8.0, Domain.BE, "BE AI", List.of(), null, null, "High", List.of(), List.of(10098L), null,
+            List.of(), List.of())));
 
     List<PlannedIssueViewDto> plannedIssues = planningService.getPlannedIssues("pod-1", 12L);
 
@@ -280,10 +352,35 @@ class PlanningServiceImplTest {
     when(jiraClient.getBacklogIssues(eq(101L), any(), eq(0), eq(50)))
         .thenReturn(new com.sprinklr.sprintplanning.common.model.BacklogPage(List.of(), 0, 50, 0, true));
 
-    planningService.moveIssuesToBacklog("pod-1", 0, 50, List.of("WFM-3"));
+    planningService.moveIssuesToBacklog("pod-1", null, 0, 50, List.of("WFM-3"));
 
     verify(jiraClient).moveIssuesToBacklog(List.of("WFM-3"));
     verify(jiraClient).getBacklogIssues(101L, fieldConfig(), 0, 50);
+    verify(sprintPlanningRepository, never()).save(any());
+  }
+
+  @Test
+  void moveIssuesToBacklogRemovesCommittedKeysWhenSprintProvided() {
+    PodDocument pod = podWithBoard(101L);
+    when(teamService.getActivePodDocument("pod-1")).thenReturn(pod);
+    when(jiraConfigMapper.toJiraFieldConfig(any())).thenReturn(fieldConfig());
+    when(jiraClient.getBacklogIssues(eq(101L), any(), eq(0), eq(50)))
+        .thenReturn(new com.sprinklr.sprintplanning.common.model.BacklogPage(List.of(), 0, 50, 0, true));
+
+    SprintPlanningDocument planning = new SprintPlanningDocument();
+    planning.setPodId("pod-1");
+    planning.setJiraSprintId(20L);
+    planning.setCommittedIssueKeys(new ArrayList<>(List.of("WFM-1", "WFM-3")));
+    when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 20L))
+        .thenReturn(List.of(planning));
+    when(sprintPlanningRepository.save(any(SprintPlanningDocument.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    planningService.moveIssuesToBacklog("pod-1", 20L, 0, 50, List.of("WFM-3"));
+
+    verify(jiraClient).moveIssuesToBacklog(List.of("WFM-3"));
+    verify(sprintPlanningRepository).save(planning);
+    assertThat(planning.getCommittedIssueKeys()).containsExactly("WFM-1");
   }
 
   @Test
@@ -434,8 +531,10 @@ class PlanningServiceImplTest {
   }
 
   private static TicketViewDto ticket(String key, List<Long> sprintIds, Domain domain, double storyPoints) {
+    Long currentSprintId = sprintIds == null || sprintIds.isEmpty() ? null : sprintIds.getLast();
     return new TicketViewDto(
         key, "Summary", "Story", "In Progress", StatusCategory.IN_PROGRESS,
-        storyPoints, domain, null, List.of(), null, null, "High", List.of(), sprintIds, List.of(), List.of());
+        storyPoints, domain, null, List.of(), null, null, "High", List.of(), sprintIds, currentSprintId,
+        List.of(), List.of());
   }
 }

@@ -167,6 +167,29 @@ class JiraIssueMappingHelperTest {
   }
 
   @Test
+  void resolveCurrentSprintIdReturnsNullWhenOnlyClosedSprintHistoryRemains() throws Exception {
+    JiraIssueDto issue = readIssue("""
+        {
+          "key": "SCRUM-13",
+          "fields": {
+            "summary": "Backlog issue with closed sprint history",
+            "issuetype": { "name": "Story" },
+            "status": {
+              "name": "BACKLOG(DEV)",
+              "statusCategory": { "key": "new" }
+            },
+            "customfield_10020": [
+              { "id": 10098, "name": "Old Sprint", "state": "closed" }
+            ]
+          }
+        }
+        """);
+
+    assertThat(helper.resolveSprintIds(issue, fieldConfig)).containsExactly(10098L);
+    assertThat(helper.resolveCurrentSprintId(issue, fieldConfig)).isNull();
+  }
+
+  @Test
   void resolvesSprintIdsFromConfiguredFieldId() throws Exception {
     JiraFieldConfig config = new JiraFieldConfig(
         "customfield_10016",

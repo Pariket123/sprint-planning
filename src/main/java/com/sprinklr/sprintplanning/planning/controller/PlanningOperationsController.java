@@ -2,6 +2,7 @@ package com.sprinklr.sprintplanning.planning.controller;
 
 import com.sprinklr.sprintplanning.common.dto.ApiResponse;
 import com.sprinklr.sprintplanning.planning.dto.BacklogPageDto;
+import com.sprinklr.sprintplanning.planning.dto.IssueKeysRequest;
 import com.sprinklr.sprintplanning.planning.dto.IssueMoveRequest;
 import com.sprinklr.sprintplanning.planning.dto.PlanningViewDto;
 import com.sprinklr.sprintplanning.planning.service.PlanningService;
@@ -41,11 +42,13 @@ public class PlanningOperationsController {
   @Operation(summary = "Bulk move issues to backlog")
   public ResponseEntity<ApiResponse<BacklogPageDto>> moveIssuesToBacklog(
       @PathVariable String podId,
+      @RequestParam(required = false) Long jiraSprintId,
       @RequestParam(defaultValue = "0") int startAt,
       @RequestParam(defaultValue = "50") int maxResults,
       @Valid @RequestBody IssueMoveRequest request) {
     return ResponseEntity.ok(ApiResponse.ok(
-        planningService.moveIssuesToBacklog(podId, startAt, maxResults, request.issueKeys())));
+        planningService.moveIssuesToBacklog(
+            podId, jiraSprintId, startAt, maxResults, request.issueKeys())));
   }
 
   @PostMapping("/sprints/{jiraSprintId}/issues/move")
@@ -56,5 +59,15 @@ public class PlanningOperationsController {
       @Valid @RequestBody IssueMoveRequest request) {
     return ResponseEntity.ok(ApiResponse.ok(
         planningService.moveIssuesToSprint(podId, jiraSprintId, request)));
+  }
+
+  @PostMapping("/sprints/{jiraSprintId}/issues/uncommit")
+  @Operation(summary = "Remove issues from sprint commitment without moving them in Jira")
+  public ResponseEntity<ApiResponse<PlanningViewDto>> uncommitIssues(
+      @PathVariable String podId,
+      @PathVariable Long jiraSprintId,
+      @Valid @RequestBody IssueKeysRequest request) {
+    return ResponseEntity.ok(ApiResponse.ok(
+        planningService.uncommitIssues(podId, jiraSprintId, request.issueKeys())));
   }
 }

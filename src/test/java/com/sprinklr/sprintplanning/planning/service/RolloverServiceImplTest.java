@@ -6,6 +6,7 @@ import com.sprinklr.sprintplanning.common.enums.StatusCategory;
 import com.sprinklr.sprintplanning.common.exception.ApiException;
 import com.sprinklr.sprintplanning.common.exception.JiraClientException;
 import com.sprinklr.sprintplanning.common.model.JiraFieldConfig;
+import com.sprinklr.sprintplanning.common.model.SprintView;
 import com.sprinklr.sprintplanning.planning.dto.RecordRolloverRequest;
 import com.sprinklr.sprintplanning.planning.dto.RolloverIssueDto;
 import com.sprinklr.sprintplanning.planning.mapper.RolloverMapper;
@@ -24,6 +25,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -71,6 +73,8 @@ class RolloverServiceImplTest {
     when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 12L))
         .thenReturn(List.of(fromPlanning));
     when(sprintPlanningRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    when(jiraClient.getSprint(12L)).thenReturn(sprintView(12L, "SCRUM Sprint 3"));
+    when(jiraClient.getSprint(13L)).thenReturn(sprintView(13L, "SCRUM Sprint 1"));
 
     RolloverIssueDto result = rolloverService.recordRollover(
         "pod-1", 12L, new RecordRolloverRequest("CARE-105613", 13L, "Incomplete", false));
@@ -78,6 +82,8 @@ class RolloverServiceImplTest {
     assertThat(result.issueKey()).isEqualTo("CARE-105613");
     assertThat(result.fromSprintId()).isEqualTo(12L);
     assertThat(result.toSprintId()).isEqualTo(13L);
+    assertThat(result.fromSprintName()).isEqualTo("SCRUM Sprint 3");
+    assertThat(result.toSprintName()).isEqualTo("SCRUM Sprint 1");
     assertThat(result.statusAtRollover()).isEqualTo("In Progress");
     assertThat(result.storyPointsAtRollover()).isEqualTo(2.0);
     assertThat(result.domain()).isEqualTo(Domain.DEV);
@@ -155,11 +161,14 @@ class RolloverServiceImplTest {
 
     when(sprintPlanningRepository.findAllByPodIdAndJiraSprintIdOrderByUpdatedAtDesc("pod-1", 12L))
         .thenReturn(List.of(planning));
+    when(jiraClient.getSprint(12L)).thenReturn(sprintView(12L, "SCRUM Sprint 3"));
+    when(jiraClient.getSprint(13L)).thenReturn(sprintView(13L, "SCRUM Sprint 1"));
 
     List<RolloverIssueDto> outgoingRollovers = rolloverService.getOutgoingRollovers("pod-1", 12L);
 
     assertThat(outgoingRollovers).hasSize(1);
     assertThat(outgoingRollovers.get(0).issueKey()).isEqualTo("CARE-1");
+    assertThat(outgoingRollovers.get(0).toSprintName()).isEqualTo("SCRUM Sprint 1");
   }
 
   @Test
@@ -175,11 +184,14 @@ class RolloverServiceImplTest {
 
     when(sprintPlanningRepository.findIncomingRollovers("pod-1", 13L))
         .thenReturn(List.of(fromPlanning));
+    when(jiraClient.getSprint(12L)).thenReturn(sprintView(12L, "SCRUM Sprint 3"));
+    when(jiraClient.getSprint(13L)).thenReturn(sprintView(13L, "SCRUM Sprint 1"));
 
     List<RolloverIssueDto> incomingRollovers = rolloverService.getIncomingRollovers("pod-1", 13L);
 
     assertThat(incomingRollovers).hasSize(1);
     assertThat(incomingRollovers.get(0).toSprintId()).isEqualTo(13L);
+    assertThat(incomingRollovers.get(0).fromSprintName()).isEqualTo("SCRUM Sprint 3");
   }
 
   private PodDocument pod() {
@@ -201,9 +213,14 @@ class RolloverServiceImplTest {
     return document;
   }
 
+  private SprintView sprintView(Long id, String name) {
+    return new SprintView(id, name, "future", Instant.now(), Instant.now(), null);
+  }
+
   private TicketViewDto ticket(String key, double storyPoints, Domain domain, Long sprintId) {
     return new TicketViewDto(
         key, "Summary", "Story", "In Progress", StatusCategory.IN_PROGRESS,
-        storyPoints, domain, null, List.of(), null, null, "High", List.of(), List.of(sprintId), List.of(), List.of());
+        storyPoints, domain, null, List.of(), null, null, "High", List.of(), List.of(sprintId), sprintId,
+        List.of(), List.of());
   }
 }
