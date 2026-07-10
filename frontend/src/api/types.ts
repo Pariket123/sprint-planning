@@ -364,7 +364,7 @@ export interface PlanningViewDto {
   selectedIssueKeys: string[]
   plannedIssueKeys: string[]
   committedIssueKeys: string[]
-  rolloverIssues: RolloverIssueDto[]
+  rolloverIssueCount: number
   domainMetrics: DomainPlanningMetricsDto[]
   capacityAllocationTable: CapacityAllocationTableDto | null
 }

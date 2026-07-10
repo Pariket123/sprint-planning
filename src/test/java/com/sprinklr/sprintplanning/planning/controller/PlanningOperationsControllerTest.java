@@ -70,7 +70,7 @@ class PlanningOperationsControllerTest {
         List.of(),
         List.of(),
         List.of(),
-        List.of(),
+        0,
         List.of(),
         null);
     when(planningService.moveIssuesToSprint(eq("pod-1"), eq(10L), any(IssueMoveRequest.class)))
@@ -109,7 +109,7 @@ class PlanningOperationsControllerTest {
         List.of(),
         List.of(),
         List.of(),
-        List.of(),
+        0,
         List.of(),
         null);
     when(planningService.uncommitIssues("pod-1", 10L, List.of("WFM-1")))

@@ -294,7 +294,7 @@ class PlanningServiceImplTest {
     when(jiraClient.getSprint(20L)).thenReturn(sprint);
     when(jiraClient.getBoardSprints(101L, "closed")).thenReturn(List.of());
     when(jiraClient.getSprintIssues(eq(20L), any())).thenReturn(List.of());
-    when(rolloverService.getRolloverRecords("pod-1", 20L)).thenReturn(List.of());
+    when(sprintPlanningRepository.findIncomingRollovers("pod-1", 20L)).thenReturn(List.of());
 
     planningService.moveIssuesToSprint(
         "pod-1", 20L, new IssueMoveRequest(List.of("WFM-1", "WFM-0"), false));
@@ -321,7 +321,7 @@ class PlanningServiceImplTest {
     when(jiraClient.getSprint(20L)).thenReturn(sprint);
     when(jiraClient.getBoardSprints(101L, "closed")).thenReturn(List.of());
     when(jiraClient.getSprintIssues(eq(20L), any())).thenReturn(List.of());
-    when(rolloverService.getRolloverRecords("pod-1", 20L)).thenReturn(List.of());
+    when(sprintPlanningRepository.findIncomingRollovers("pod-1", 20L)).thenReturn(List.of());
 
     planningService.moveIssuesToSprint(
         "pod-1", 20L, new IssueMoveRequest(List.of("WFM-1"), true));
@@ -443,7 +443,7 @@ class PlanningServiceImplTest {
     when(jiraClient.getSprint(20L)).thenReturn(sprint);
     when(jiraClient.getBoardSprints(101L, "closed")).thenReturn(List.of());
     when(jiraClient.getSprintIssues(eq(20L), any())).thenReturn(List.of());
-    when(rolloverService.getRolloverRecords("pod-1", 20L)).thenReturn(List.of());
+    when(sprintPlanningRepository.findIncomingRollovers("pod-1", 20L)).thenReturn(List.of());
 
     PlanningViewDto view = planningService.getPlanningView("pod-1", 20L);
 
@@ -474,13 +474,14 @@ class PlanningServiceImplTest {
     when(jiraClient.getSprint(20L)).thenReturn(sprint);
     when(jiraClient.getBoardSprints(101L, "closed")).thenReturn(List.of());
     when(jiraClient.getSprintIssues(eq(20L), any())).thenReturn(List.of());
-    when(rolloverService.getRolloverRecords("pod-1", 20L)).thenReturn(List.of());
+    when(sprintPlanningRepository.findIncomingRollovers("pod-1", 20L)).thenReturn(List.of());
 
     planningService.getPlanningView("pod-1", 20L);
 
     verify(jiraClient, times(1)).getSprint(20L);
     verify(jiraClient, times(1)).getSprintIssues(eq(20L), any());
     verify(jiraClient, times(1)).getBoardSprints(101L, "closed");
+    verify(rolloverService, never()).getRolloverRecords(any(), any());
   }
 
   @Test

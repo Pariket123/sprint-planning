@@ -289,16 +289,31 @@ public class PlanningServiceImpl implements PlanningService {
         ? CompletableFuture.completedFuture(List.of())
         : CompletableFuture.supplyAsync(
             () -> fetchCommittedIssues(podContext, committedKeys), jiraFetchExecutor);
+    CompletableFuture<List<IssueView>> previousSprintIssuesFuture = sprintFuture
+        .thenCombineAsync(
+            closedSprintsFuture,
+            (sprint, closedSprints) -> findPreviousSprint(closedSprints, sprint),
+            jiraFetchExecutor)
+        .thenComposeAsync(
+            previousSprint -> previousSprint == null
+                ? CompletableFuture.completedFuture(List.of())
+                : CompletableFuture.supplyAsync(
+                    () -> jiraClient.getSprintIssues(previousSprint.id(), podContext.fieldConfig()),
+                    jiraFetchExecutor),
+            jiraFetchExecutor);
 
     SprintView sprint = joinFuture(sprintFuture);
     List<IssueView> sprintIssues = joinFuture(sprintIssuesFuture);
     List<SprintView> closedSprints = joinFuture(closedSprintsFuture);
     List<IssueView> committedIssues = joinFuture(committedIssuesFuture);
+    List<IssueView> previousSprintIssues = joinFuture(previousSprintIssuesFuture);
 
     List<IssueView> selectedIssues = resolveSelectedIssues(
         planning, sprintIssues, podContext.boardId(), podContext.fieldConfig());
-    Map<Domain, Double> resolvedRollover = fetchComputedRollover(
-        podContext, planning, sprint, closedSprints);
+    SprintView previousSprint = findPreviousSprint(closedSprints, sprint);
+    Map<Domain, Double> resolvedRollover = previousSprint == null
+        ? planningCalculator.resolveRollover(Map.of(), planning.getRolloverStoryPoints())
+        : computeRolloverFromPreviousIssues(planning, previousSprintIssues);
     PlanningSummaryDto summary = buildSummary(
         jiraSprintId, sprint, planning, resolvedRollover, selectedIssues, committedIssues);
 
@@ -321,7 +336,7 @@ public class PlanningServiceImpl implements PlanningService {
         selectedIssues.stream().map(IssueView::key).toList(),
         nullSafeCopy(planning.getPlannedIssueKeys()),
         committedKeys,
-        rolloverService.getRolloverRecords(podId, jiraSprintId),
+        countRolloverRecordsInvolvingSprint(podId, jiraSprintId, planning),
         summary.domainMetrics(),
         summary.capacityAllocationTable());
   }
@@ -561,6 +576,28 @@ public class PlanningServiceImpl implements PlanningService {
   }
 
   private record PodContext(Long boardId, JiraFieldConfig fieldConfig) {
+  }
+
+  private int countRolloverRecordsInvolvingSprint(
+      String podId, Long jiraSprintId, SprintPlanningDocument planning) {
+    Map<String, Boolean> merged = new LinkedHashMap<>();
+    for (RolloverIssue issue : planningDocumentAccessor.rolloverIssues(planning)) {
+      if (jiraSprintId.equals(issue.getFromSprintId())) {
+        merged.put(rolloverRecordKey(issue), Boolean.TRUE);
+      }
+    }
+    for (SprintPlanningDocument document : sprintPlanningRepository.findIncomingRollovers(podId, jiraSprintId)) {
+      for (RolloverIssue issue : planningDocumentAccessor.rolloverIssues(document)) {
+        if (jiraSprintId.equals(issue.getToSprintId())) {
+          merged.put(rolloverRecordKey(issue), Boolean.TRUE);
+        }
+      }
+    }
+    return merged.size();
+  }
+
+  private String rolloverRecordKey(RolloverIssue issue) {
+    return issue.getIssueKey() + ":" + issue.getFromSprintId() + ":" + issue.getToSprintId();
   }
 
   private SprintView findPreviousSprint(List<SprintView> closedSprints, SprintView currentSprint) {

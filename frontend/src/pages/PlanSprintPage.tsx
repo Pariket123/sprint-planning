@@ -62,6 +62,7 @@ export function PlanSprintPage() {
   const [sprintsError, setSprintsError] = useState<string | null>(null)
   const [planningError, setPlanningError] = useState<string | null>(null)
   const planningRequestId = useRef(0)
+  const lastPlanningLoadKey = useRef<string | null>(null)
 
   const loadSprints = useCallback(async () => {
     if (!podId) {
@@ -84,10 +85,17 @@ export function PlanSprintPage() {
     }
   }, [podId])
 
-  const loadPlanning = useCallback(async () => {
-    if (!podId || selectedSprintId === null) {
+  const loadPlanning = useCallback(async (options?: { sprintId?: number; force?: boolean }) => {
+    const sprintId = options?.sprintId ?? selectedSprintId
+    if (!podId || sprintId === null) {
       return
     }
+
+    const loadKey = `${podId}:${sprintId}`
+    if (!options?.force && lastPlanningLoadKey.current === loadKey) {
+      return
+    }
+    lastPlanningLoadKey.current = loadKey
 
     const requestId = planningRequestId.current + 1
     planningRequestId.current = requestId
@@ -96,7 +104,7 @@ export function PlanSprintPage() {
     setPlanningError(null)
 
     try {
-      const planningData = await getPlanning(podId, selectedSprintId)
+      const planningData = await getPlanning(podId, sprintId)
       if (planningRequestId.current !== requestId) {
         return
       }
@@ -124,26 +132,28 @@ export function PlanSprintPage() {
   }, [loadSprints])
 
   useEffect(() => {
-    if (sprintsLoading || sprints.length === 0) {
+    if (sprintsLoading || sprints.length === 0 || !podId) {
       return
     }
 
-    const isValidSelection =
+    const sprintId =
       selectedSprintId !== null && sprints.some((sprint) => sprint.id === selectedSprintId)
+        ? selectedSprintId
+        : sprints[0].id
 
-    if (!isValidSelection) {
-      setSprintId(sprints[0].id)
-      return
+    if (selectedSprintId !== sprintId) {
+      setSprintId(sprintId)
     }
 
-    void loadPlanning()
-  }, [sprints, sprintsLoading, selectedSprintId, setSprintId, loadPlanning])
+    void loadPlanning({ sprintId })
+  }, [podId, sprints, sprintsLoading, selectedSprintId, setSprintId, loadPlanning])
 
   useEffect(() => {
     if (selectedSprintId === null) {
       setPlanning(null)
       setSummary(null)
       setPlanningError(null)
+      lastPlanningLoadKey.current = null
     }
   }, [selectedSprintId])
 
@@ -211,7 +221,7 @@ export function PlanSprintPage() {
       {planningLoading && <PageLoadingState message="Loading planning view..." />}
 
       {planningError && !planningLoading && (
-        <PageErrorState message={planningError} onRetry={loadPlanning} />
+        <PageErrorState message={planningError} onRetry={() => void loadPlanning({ force: true })} />
       )}
 
       {planning && summary && !planningLoading && !planningError && podId && selectedSprintId !== null && (
@@ -242,7 +252,7 @@ export function PlanSprintPage() {
                     initial={planning.capacity ?? []}
                     onSave={async (capacity) => {
                       await updateCapacity(podId, selectedSprintId, { capacity })
-                      await loadPlanning()
+                      await loadPlanning({ force: true })
                     }}
                   />
                 </div>
@@ -255,7 +265,7 @@ export function PlanSprintPage() {
                     initial={planning.leaves ?? []}
                     onSave={async (leaves) => {
                       await updateLeaves(podId, selectedSprintId, { leaves })
-                      await loadPlanning()
+                      await loadPlanning({ force: true })
                     }}
                   />
                 </div>
@@ -271,7 +281,7 @@ export function PlanSprintPage() {
                     initial={planning.overrides ?? []}
                     onSave={async (overrides) => {
                       await updateOverrides(podId, selectedSprintId, { overrides })
-                      await loadPlanning()
+                      await loadPlanning({ force: true })
                     }}
                   />
                 </div>
@@ -288,7 +298,7 @@ export function PlanSprintPage() {
                     initialPercents={planning.capacityAllocation ?? []}
                     onSave={async (capacityAllocation) => {
                       await updateCapacityAllocation(podId, selectedSprintId, { capacityAllocation })
-                      await loadPlanning()
+                      await loadPlanning({ force: true })
                     }}
                   />
                 </div>
@@ -314,7 +324,7 @@ export function PlanSprintPage() {
                 podId={podId}
                 jiraSprintId={selectedSprintId}
                 planning={planning}
-                onPlanningUpdated={loadPlanning}
+                onPlanningUpdated={() => loadPlanning({ force: true })}
               />
             </section>
           )}
@@ -324,7 +334,7 @@ export function PlanSprintPage() {
               <BacklogTab
                 podId={podId}
                 jiraSprintId={selectedSprintId}
-                onPlanningUpdated={loadPlanning}
+                onPlanningUpdated={() => loadPlanning({ force: true })}
               />
             </section>
           )}
@@ -334,7 +344,7 @@ export function PlanSprintPage() {
               podId={podId}
               jiraSprintId={selectedSprintId}
               selectedIssueKeys={planning.selectedIssueKeys ?? []}
-              onPlanningUpdated={loadPlanning}
+              onPlanningUpdated={() => loadPlanning({ force: true })}
             />
           )}
 
@@ -343,7 +353,7 @@ export function PlanSprintPage() {
               podId={podId}
               jiraSprintId={selectedSprintId}
               sprints={sprints}
-              onPlanningUpdated={loadPlanning}
+              onPlanningUpdated={() => loadPlanning({ force: true })}
             />
           )}
 
@@ -417,7 +427,7 @@ function OverviewTab({
           />
           <AnalyticsSummaryCard
             label="Rollover issues"
-            value={(planning.rolloverIssues ?? []).length}
+            value={planning.rolloverIssueCount ?? 0}
           />
         </div>
       </section>

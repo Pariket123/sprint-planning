@@ -71,7 +71,7 @@ class PlanningControllerTest {
         List.of(),
         List.of(),
         List.of(),
-        List.of(),
+        0,
         List.of(),
         null);
     when(planningService.getPlanningView("pod-1", 10L)).thenReturn(view);
@@ -176,7 +176,7 @@ class PlanningControllerTest {
         List.of(),
         List.of(),
         List.of(),
-        List.of(),
+        0,
         List.of(new DomainPlanningMetricsDto(
             Domain.BE, 20.0, 2.0, 8.0, 2, 18.0, 6.0, 30.0, CapacityRiskStatus.OK)),
         null);

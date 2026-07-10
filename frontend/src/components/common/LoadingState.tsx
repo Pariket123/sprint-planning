@@ -32,7 +32,6 @@ export function PageLoadingState({ message }: PageLoadingStateProps) {
     </div>
   )
 }
-
 export function InlineLoadingState({ message = 'Loading...' }: { message?: string }) {
   return (
     <span className="inline-flex items-center gap-2 text-sm text-gray-500">
@@ -41,3 +40,4 @@ export function InlineLoadingState({ message = 'Loading...' }: { message?: strin
     </span>
   )
 }
+

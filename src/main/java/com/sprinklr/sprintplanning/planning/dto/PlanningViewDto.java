@@ -1,7 +1,6 @@
 package com.sprinklr.sprintplanning.planning.dto;
 
 import com.sprinklr.sprintplanning.common.model.SprintView;
-import com.sprinklr.sprintplanning.planning.dto.RolloverIssueDto;
 import com.sprinklr.sprintplanning.planning.model.CapacityAllocationPercents;
 import com.sprinklr.sprintplanning.planning.model.PersonCapacity;
 import com.sprinklr.sprintplanning.planning.model.LeaveEntry;
@@ -31,7 +30,7 @@ public record PlanningViewDto(
     List<String> selectedIssueKeys,
     List<String> plannedIssueKeys,
     List<String> committedIssueKeys,
-    List<RolloverIssueDto> rolloverIssues,
+    int rolloverIssueCount,
     List<DomainPlanningMetricsDto> domainMetrics,
     CapacityAllocationTableDto capacityAllocationTable
 ) {
