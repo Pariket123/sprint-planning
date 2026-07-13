@@ -7,8 +7,8 @@ import com.sprinklr.sprintplanning.common.exception.JiraClientException;
 import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.common.model.JiraFieldConfig;
 import com.sprinklr.sprintplanning.common.model.SprintView;
-import com.sprinklr.sprintplanning.planning.calculator.CapacityAllocationCalculator;
 import com.sprinklr.sprintplanning.planning.calculator.PlanningCalculator;
+import com.sprinklr.sprintplanning.planning.calculator.PlanningCalculatorFactory;
 import com.sprinklr.sprintplanning.planning.config.PlanningProperties;
 import com.sprinklr.sprintplanning.planning.dto.IssueMoveRequest;
 import com.sprinklr.sprintplanning.planning.dto.PlannedIssueViewDto;
@@ -62,8 +62,6 @@ class PlanningServiceImplTest {
   private JiraConfigMapper jiraConfigMapper;
   @Mock
   private SprintPlanningRepository sprintPlanningRepository;
-  @Mock
-  private RolloverService rolloverService;
 
   private PlanningService planningService;
 
@@ -72,13 +70,24 @@ class PlanningServiceImplTest {
   @BeforeEach
   void setUp() {
     PlanningProperties properties = new PlanningProperties();
-    PlanningCalculator calculator = new PlanningCalculator(properties, new CapacityAllocationCalculator());
+    PlanningCalculator calculator = PlanningCalculatorFactory.create(properties);
     PlanningMapper planningMapper = Mappers.getMapper(PlanningMapper.class);
     SprintPlanningDocumentAccessor planningDocumentAccessor =
         new SprintPlanningDocumentAccessor(sprintPlanningRepository);
+    PodJiraContextResolver podJiraContextResolver = new PodJiraContextResolver(teamService, jiraConfigMapper);
+    PlanningIssueSelectionService issueSelectionService =
+        new PlanningIssueSelectionService(jiraClient, planningDocumentAccessor);
+    PlanningViewAssembler viewAssembler = new PlanningViewAssembler(
+        calculator, planningMapper, sprintPlanningRepository, planningDocumentAccessor);
     planningService = new PlanningServiceImpl(
-        teamService, jiraClient, jiraConfigMapper, sprintPlanningRepository,
-        planningDocumentAccessor, calculator, planningMapper, rolloverService, SYNC_EXECUTOR);
+        teamService,
+        jiraClient,
+        planningDocumentAccessor,
+        calculator,
+        podJiraContextResolver,
+        issueSelectionService,
+        viewAssembler,
+        SYNC_EXECUTOR);
   }
 
   @Test
@@ -481,7 +490,7 @@ class PlanningServiceImplTest {
     verify(jiraClient, times(1)).getSprint(20L);
     verify(jiraClient, times(1)).getSprintIssues(eq(20L), any());
     verify(jiraClient, times(1)).getBoardSprints(101L, "closed");
-    verify(rolloverService, never()).getRolloverRecords(any(), any());
+    verify(sprintPlanningRepository, times(1)).findIncomingRollovers("pod-1", 20L);
   }
 
   @Test

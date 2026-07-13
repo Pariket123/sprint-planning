@@ -19,13 +19,19 @@ import { formatInstant } from '../../utils/format'
 
 interface ReleasesTabProps {
   podId: string
+  initialReleases?: ReleaseResponse[]
   onReleasesChange: (releases: ReleaseResponse[]) => void
   onViewIssues: (releaseId: string) => void
 }
 
-export function ReleasesTab({ podId, onReleasesChange, onViewIssues }: ReleasesTabProps) {
-  const [releases, setReleases] = useState<ReleaseResponse[]>([])
-  const [loading, setLoading] = useState(true)
+export function ReleasesTab({
+  podId,
+  initialReleases,
+  onReleasesChange,
+  onViewIssues,
+}: ReleasesTabProps) {
+  const [releases, setReleases] = useState<ReleaseResponse[]>(initialReleases ?? [])
+  const [loading, setLoading] = useState(initialReleases === undefined)
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<'list' | 'create' | 'edit'>('list')
   const [editingRelease, setEditingRelease] = useState<ReleaseResponse | null>(null)
@@ -48,8 +54,14 @@ export function ReleasesTab({ podId, onReleasesChange, onViewIssues }: ReleasesT
   }, [podId, onReleasesChange])
 
   useEffect(() => {
+    if (initialReleases !== undefined) {
+      setReleases(initialReleases)
+      setLoading(false)
+      setError(null)
+      return
+    }
     void loadReleases()
-  }, [loadReleases])
+  }, [initialReleases, loadReleases])
 
   const handleCreate = async (request: CreateReleaseRequest | UpdateReleaseRequest) => {
     await createRelease(podId, request as CreateReleaseRequest)

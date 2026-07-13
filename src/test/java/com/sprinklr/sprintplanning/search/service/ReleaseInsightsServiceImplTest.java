@@ -9,8 +9,7 @@ import com.sprinklr.sprintplanning.common.enums.Domain;
 import com.sprinklr.sprintplanning.common.enums.StatusCategory;
 import com.sprinklr.sprintplanning.common.model.IssueView;
 import com.sprinklr.sprintplanning.common.model.JiraFieldConfig;
-import com.sprinklr.sprintplanning.planning.calculator.CapacityAllocationCalculator;
-import com.sprinklr.sprintplanning.planning.calculator.PlanningCalculator;
+import com.sprinklr.sprintplanning.planning.calculator.PlanningCalculatorFactory;
 import com.sprinklr.sprintplanning.planning.config.PlanningProperties;
 import com.sprinklr.sprintplanning.release.model.ReleaseConfigDocument;
 import com.sprinklr.sprintplanning.release.service.ReleaseService;
@@ -67,7 +66,7 @@ class ReleaseInsightsServiceImplTest {
         jiraConfigMapper,
         releaseJqlResolver,
         new AnalyticsCalculator(new WorkflowAnalyticsCalculator(new WorkflowSectionResolver())),
-        new PlanningCalculator(new PlanningProperties(), new CapacityAllocationCalculator()));
+        PlanningCalculatorFactory.create(new PlanningProperties()));
   }
 
   @Test

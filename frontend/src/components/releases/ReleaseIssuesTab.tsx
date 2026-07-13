@@ -16,7 +16,7 @@ import type {
   ReleaseResponse,
 } from '../../api/types'
 import { JqlAutocompleteTextarea } from '../jira/JqlAutocompleteTextarea'
-import { PageErrorState, PageLoadingState } from '../common'
+import { PageErrorState, PageLoadingState, TabButton } from '../common'
 import { ReleaseAnalysisPanel } from './ReleaseAnalysisPanel'
 import { ReleaseCapacityEditor } from './ReleaseCapacityEditor'
 import { CapacityAllocationEditor } from '../planning/CapacityAllocationEditor'
@@ -262,17 +262,17 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
 
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex gap-6" aria-label="Release issue views">
-          <ViewTabButton
+          <TabButton
             active={activeTab === 'issues'}
             onClick={() => setActiveTab('issues')}
             label="Issues"
           />
-          <ViewTabButton
+          <TabButton
             active={activeTab === 'capacity'}
             onClick={() => setActiveTab('capacity')}
             label="Capacity"
           />
-          <ViewTabButton
+          <TabButton
             active={activeTab === 'analysis'}
             onClick={() => setActiveTab('analysis')}
             label="Analysis"
@@ -436,29 +436,5 @@ export function ReleaseIssuesTab({ podId, release, onBack }: ReleaseIssuesTabPro
         </div>
       )}
     </div>
-  )
-}
-
-function ViewTabButton({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean
-  onClick: () => void
-  label: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`border-b-2 px-1 py-3 text-sm font-medium transition ${
-        active
-          ? 'border-brand-600 text-brand-600'
-          : 'border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-600'
-      }`}
-    >
-      {label}
-    </button>
   )
 }

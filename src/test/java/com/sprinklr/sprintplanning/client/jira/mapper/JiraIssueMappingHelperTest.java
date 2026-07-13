@@ -16,7 +16,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class JiraIssueMappingHelperTest {
 
   private final ObjectMapper objectMapper = new ObjectMapper();
-  private final JiraIssueMappingHelper helper = new JiraIssueMappingHelper();
+  private final JiraFieldReader fieldReader = new JiraFieldReader();
+  private final JiraIssueMappingHelper helper = new JiraIssueMappingHelper(
+      fieldReader,
+      new DomainMappingService(fieldReader),
+      new SprintFieldParser(fieldReader));
   private JiraFieldConfig fieldConfig;
 
   @BeforeEach

@@ -62,9 +62,7 @@ function formatDomainValues(values: Record<string, string> | null | undefined): 
   if (!values || Object.keys(values).length === 0) {
     return '-'
   }
-  return Object.entries(values)
-    .map(([key, label]) => `${key} (${label})`)
-    .join(', ')
+  return Object.keys(values).join(', ')
 }
 
 export { formatList, formatDomainValues }

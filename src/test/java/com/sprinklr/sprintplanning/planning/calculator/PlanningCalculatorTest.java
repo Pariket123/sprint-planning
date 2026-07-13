@@ -31,7 +31,7 @@ class PlanningCalculatorTest {
     properties.setDomainImbalanceThreshold(0.6);
     properties.setHighUtilizationThreshold(0.9);
     properties.setMediumUtilizationThreshold(0.75);
-    calculator = new PlanningCalculator(properties, new CapacityAllocationCalculator());
+    calculator = PlanningCalculatorFactory.create(properties);
   }
 
   @Test

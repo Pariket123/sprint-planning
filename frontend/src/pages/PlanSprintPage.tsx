@@ -22,6 +22,7 @@ import {
   PageErrorState,
   PageHeader,
   PageLoadingState,
+  TabButton,
 } from '../components/common'
 import { BacklogTab } from '../components/planning/BacklogTab'
 import { CapacityEditor } from '../components/planning/CapacityEditor'
@@ -35,7 +36,7 @@ import { RiskBadge } from '../components/planning/RiskBadge'
 import { RolloverTab } from '../components/planning/RolloverTab'
 import { SprintSelector } from '../components/selectors/SprintSelector'
 import { useAppContext } from '../context/AppContext'
-import { formatInstant, formatSprintState, formatStoryPoints } from '../utils/format'
+import { formatStoryPoints } from '../utils/format'
 import { buildPlanningSummary } from '../utils/planningSummary'
 import { PlanningCapacityGuidance } from '../components/planning/PlanningCapacityGuidance'
 
@@ -378,20 +379,8 @@ function OverviewTab({
   planning: PlanningViewDto
   summary: PlanningSummaryDto
 }) {
-  const sprint = planning.sprint
-
   return (
     <div className="space-y-6">
-      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-semibold text-gray-900">Sprint details</h2>
-        <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm">
-          <Metric label="Sprint" value={sprint.name} />
-          <Metric label="State" value={formatSprintState(sprint.state)} />
-          <Metric label="Start" value={formatInstant(sprint.startDate)} />
-          <Metric label="End" value={formatInstant(sprint.endDate)} />
-        </dl>
-      </section>
-
       <section>
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-gray-900">Planning summary</h2>
@@ -542,35 +531,3 @@ function SummaryTab({
   )
 }
 
-function TabButton({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean
-  onClick: () => void
-  label: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`border-b-2 px-1 py-3 text-sm font-medium transition ${
-        active
-          ? 'border-brand-600 text-brand-600'
-          : 'border-transparent text-gray-500 hover:border-gray-200 hover:text-gray-600'
-      }`}
-    >
-      {label}
-    </button>
-  )
-}
-
-function Metric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-md border border-gray-100 bg-gray-50 px-4 py-3">
-      <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</dt>
-      <dd className="mt-1 text-sm font-medium text-gray-900">{value}</dd>
-    </div>
-  )
-}

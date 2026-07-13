@@ -95,6 +95,7 @@ export function ReleasePage() {
       {view === 'list' ? (
         <ReleasesTab
           podId={podId}
+          initialReleases={releases}
           onReleasesChange={handleReleasesChange}
           onViewIssues={handleViewReleaseIssues}
         />
@@ -107,6 +108,7 @@ export function ReleasePage() {
       ) : (
         <ReleasesTab
           podId={podId}
+          initialReleases={releases}
           onReleasesChange={handleReleasesChange}
           onViewIssues={handleViewReleaseIssues}
         />
